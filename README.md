@@ -1,7 +1,7 @@
 # Plane by MasteryHub ITS
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![CI](https://github.com/MasteryHub-ITS/plane-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/MasteryHub-ITS/plane-vscode/actions/workflows/ci.yml)
+[![CI](https://github.com/MasteryHub-ITS/plane-vscode-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/MasteryHub-ITS/plane-vscode-extension/actions/workflows/ci.yml)
 
 Browse, preview, search, and manage issues from **self-hosted Plane** or **Plane Cloud** without leaving VS Code or Cursor.
 
@@ -22,7 +22,7 @@ This is an open-source **[MasteryHub ITS](https://www.masteryhub-its.com)** clie
 
 ## Install
 
-1. Run `npm run package` in this repo, or download a `.vsix` from [Releases](https://github.com/MasteryHub-ITS/plane-vscode/releases).
+1. Run `npm run package` in this repo, or download a `.vsix` from [Releases](https://github.com/MasteryHub-ITS/plane-vscode-extension/releases).
 2. VS Code / Cursor: **Extensions → … → Install from VSIX…**
 3. **Restart** the editor.
 4. Open the Plane icon in the activity bar and sign in with a PAT.
