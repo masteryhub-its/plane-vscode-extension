@@ -134,7 +134,7 @@ See [FEATURES.md](./FEATURES.md). v0.2–v0.5 from this roadmap are implemented 
 
 | Feature | Detail |
 | --- | --- |
-| Git repo on GitHub `MasteryHub-ITS/plane-vscode-extension` | Initial commit, CI, tags |
+| Git repo on GitHub `masteryhub-its/plane-vscode-extension` | Initial commit, CI, tags |
 | Visual Studio Marketplace + Open VSX | Publisher `masteryhub-its` |
 | Compatibility matrix | Plane Cloud + self-hosted AIO versions tested |
 | CHANGELOG + semver | Release notes per version |
@@ -213,4 +213,4 @@ Project URL: `{server}/{slug}/projects/{project_id}/issues/{issue_id}/`
 - [FEATURES.md](./FEATURES.md) — what v0.5.0 does today  
 - [CODE_STANDARDS.md](./CODE_STANDARDS.md) — engineering bar (shared with AFFiNE)  
 - [SECURITY.md](./SECURITY.md) — vulnerability reports  
-- AFFiNE sibling: [affine-vscode-extension ROADMAP](https://github.com/MasteryHub-ITS/affine-vscode-extension/blob/main/ROADMAP.md) (separate product plan)
+- AFFiNE sibling: [affine-vscode-extension ROADMAP](https://github.com/masteryhub-its/affine-vscode-extension/blob/main/ROADMAP.md) (separate product plan)
