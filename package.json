@@ -1,0 +1,370 @@
+{
+  "name": "plane",
+  "displayName": "Plane by MasteryHub",
+  "description": "MasteryHub ITS client for Plane — browse, preview, search, and manage issues from self-hosted or Cloud Plane inside VS Code and Cursor.",
+  "version": "0.5.0",
+  "publisher": "masteryhub-its",
+  "license": "MIT",
+  "author": "MasteryHub ITS",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MasteryHub-ITS/plane-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MasteryHub-ITS/plane-vscode/issues"
+  },
+  "homepage": "https://github.com/MasteryHub-ITS/plane-vscode#readme",
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=20.0.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "plane",
+    "issues",
+    "project-management",
+    "self-hosted",
+    "masteryhub",
+    "vscode-extension",
+    "cursor"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:planeExplorer",
+    "onView:planePanel"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Plane",
+      "properties": {
+        "plane.serverUrl": {
+          "type": "string",
+          "default": "https://plane.masteryhub-its.com",
+          "description": "Base URL of the Plane instance (Global only — workspace/folder settings are ignored so a cloned repo cannot retarget your PAT). Use https://app.plane.so for Plane Cloud or your self-hosted URL (no trailing slash)."
+        },
+        "plane.defaultWorkspaceSlug": {
+          "type": "string",
+          "default": "",
+          "description": "Optional workspace slug used as the default search/open target. Empty uses every accessible workspace."
+        },
+        "plane.defaultProjectId": {
+          "type": "string",
+          "default": "",
+          "description": "Optional project UUID to scope search and create-issue defaults. Empty searches all projects."
+        },
+        "plane.showAssignedBadge": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show a badge on the Issues view with the count of issues assigned to you."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "plane",
+          "title": "Plane",
+          "icon": "media/plane.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "plane.openSignIn",
+        "title": "Sign in to Plane"
+      },
+      {
+        "command": "plane.search",
+        "title": "Search Plane Issues",
+        "icon": "$(search)"
+      },
+      {
+        "command": "plane.openIssue",
+        "title": "Open Plane Issue"
+      },
+      {
+        "command": "plane.createIssue",
+        "title": "Create Plane Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "plane.updateIssueState",
+        "title": "Change Issue State",
+        "icon": "$(circle-outline)"
+      },
+      {
+        "command": "plane.updateIssueAssignee",
+        "title": "Change Issue Assignee",
+        "icon": "$(person)"
+      },
+      {
+        "command": "plane.updateIssuePriority",
+        "title": "Change Issue Priority",
+        "icon": "$(flame)"
+      },
+      {
+        "command": "plane.updateIssueLabels",
+        "title": "Change Issue Labels",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "plane.updateIssueTitle",
+        "title": "Rename Issue",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "plane.updateIssueDescription",
+        "title": "Edit Issue Description",
+        "icon": "$(note)"
+      },
+      {
+        "command": "plane.updateIssueDueDate",
+        "title": "Change Issue Due Date",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "plane.refresh",
+        "title": "Sync Plane",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "plane.forceReload",
+        "title": "Force Reload Plane",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "plane.signOut",
+        "title": "Sign out of Plane",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "plane.openLink",
+        "title": "Open Plane Link or Issue Key"
+      },
+      {
+        "command": "plane.copyIssueKey",
+        "title": "Copy Issue Key"
+      },
+      {
+        "command": "plane.copyIssueUrl",
+        "title": "Copy Issue URL"
+      },
+      {
+        "command": "plane.archiveIssue",
+        "title": "Archive Issue"
+      },
+      {
+        "command": "plane.deleteIssue",
+        "title": "Delete Issue"
+      },
+      {
+        "command": "plane.subscribeIssue",
+        "title": "Subscribe to Issue"
+      },
+      {
+        "command": "plane.bulkUpdateIssueState",
+        "title": "Change State of Selected Issues"
+      },
+      {
+        "command": "plane.convertIntake",
+        "title": "Convert Plane Intake Item"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "plane.updateIssueState",
+          "when": "false"
+        },
+        {
+          "command": "plane.updateIssueAssignee",
+          "when": "false"
+        },
+        {
+          "command": "plane.updateIssuePriority",
+          "when": "false"
+        },
+        {
+          "command": "plane.updateIssueLabels",
+          "when": "false"
+        },
+        {
+          "command": "plane.updateIssueTitle",
+          "when": "false"
+        },
+        {
+          "command": "plane.updateIssueDescription",
+          "when": "false"
+        },
+        {
+          "command": "plane.updateIssueDueDate",
+          "when": "false"
+        },
+        {
+          "command": "plane.copyIssueKey",
+          "when": "false"
+        },
+        {
+          "command": "plane.copyIssueUrl",
+          "when": "false"
+        },
+        {
+          "command": "plane.archiveIssue",
+          "when": "false"
+        },
+        {
+          "command": "plane.deleteIssue",
+          "when": "false"
+        },
+        {
+          "command": "plane.subscribeIssue",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "plane.search",
+          "when": "view == planePanel || view == planeExplorer",
+          "group": "navigation@0"
+        },
+        {
+          "command": "plane.createIssue",
+          "when": "view == planePanel || view == planeExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "plane.forceReload",
+          "when": "view == planePanel || view == planeExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "plane.refresh",
+          "when": "view == planePanel || view == planeExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "plane.signOut",
+          "when": "(view == planePanel || view == planeExplorer) && plane.signedIn",
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "plane.updateIssueState",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "1_issue@1"
+        },
+        {
+          "command": "plane.updateIssueAssignee",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "1_issue@2"
+        },
+        {
+          "command": "plane.updateIssuePriority",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "1_issue@3"
+        },
+        {
+          "command": "plane.updateIssueLabels",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "1_issue@4"
+        },
+        {
+          "command": "plane.updateIssueTitle",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "1_issue@5"
+        },
+        {
+          "command": "plane.updateIssueDescription",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "1_issue@6"
+        },
+        {
+          "command": "plane.updateIssueDueDate",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "1_issue@7"
+        },
+        {
+          "command": "plane.copyIssueKey",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "3_copy@1"
+        },
+        {
+          "command": "plane.copyIssueUrl",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "3_copy@2"
+        },
+        {
+          "command": "plane.subscribeIssue",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "4_more@1"
+        },
+        {
+          "command": "plane.archiveIssue",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "4_more@2"
+        },
+        {
+          "command": "plane.deleteIssue",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "4_more@3"
+        },
+        {
+          "command": "plane.openIssue",
+          "when": "view == planeExplorer && viewItem == planeIssue",
+          "group": "2_open@1"
+        }
+      ]
+    },
+    "views": {
+      "plane": [
+        {
+          "type": "webview",
+          "id": "planePanel",
+          "name": "Plane",
+          "visibility": "visible"
+        },
+        {
+          "id": "planeExplorer",
+          "name": "Issues",
+          "visibility": "visible"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "rm -rf dist && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "vscode:prepublish": "npm run compile",
+    "lint": "eslint src --max-warnings 0",
+    "lint:fix": "eslint src --fix --max-warnings 0",
+    "format": "prettier --write \"src/**/*.ts\" \"*.json\" \".prettierrc\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"package.json\" \".prettierrc\"",
+    "type-check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.eslint.json --noEmit",
+    "test": "jest --ci",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "validate": "npm run type-check && npm run lint && npm run format:check && npm test",
+    "package": "npm run compile && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.7",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "@vscode/vsce": "^3.2.2",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "globals": "^15.14.0",
+    "jest": "^30.0.0",
+    "prettier": "^3.4.2",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.3"
+  }
+}
