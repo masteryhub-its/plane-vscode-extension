@@ -31,8 +31,8 @@ This is an open-source **[MasteryHub ITS](https://www.masteryhub-its.com)** clie
 
 | Key | Default |
 | --- | --- |
-| `plane.serverUrl` | `https://plane.masteryhub-its.com` (Global only) |
-| `plane.defaultWorkspaceSlug` | `masteryhub-its` |
+| `plane.serverUrl` | Plane Cloud (`https://app.plane.so`) or your self-hosted URL (Global only) |
+| `plane.defaultWorkspaceSlug` | empty (optional; last-visited workspace from the API is used when the list endpoint is missing) |
 | `plane.defaultProjectId` | empty (all projects) |
 | `plane.showAssignedBadge` | `false` |
 

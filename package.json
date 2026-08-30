@@ -2,7 +2,7 @@
   "name": "plane",
   "displayName": "Plane by MasteryHub",
   "description": "MasteryHub ITS client for Plane — browse, preview, search, and manage issues from self-hosted or Cloud Plane inside VS Code and Cursor.",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "publisher": "masteryhub-its",
   "license": "MIT",
   "author": "MasteryHub ITS",
@@ -32,6 +32,7 @@
     "vscode-extension",
     "cursor"
   ],
+  "icon": "media/plane.png",
   "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished",
@@ -44,13 +45,13 @@
       "properties": {
         "plane.serverUrl": {
           "type": "string",
-          "default": "https://plane.masteryhub-its.com",
+          "default": "https://app.plane.so",
           "description": "Base URL of the Plane instance (Global only — workspace/folder settings are ignored so a cloned repo cannot retarget your PAT). Use https://app.plane.so for Plane Cloud or your self-hosted URL (no trailing slash)."
         },
         "plane.defaultWorkspaceSlug": {
           "type": "string",
           "default": "",
-          "description": "Optional workspace slug used as the default search/open target. Empty uses every accessible workspace."
+          "description": "Workspace slug used when Plane has no workspace list API. If empty, the last-visited workspace from the signed-in user is used. Also the default search/open target."
         },
         "plane.defaultProjectId": {
           "type": "string",

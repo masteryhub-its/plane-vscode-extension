@@ -23,7 +23,7 @@ describe('renderSidebarHtml', () => {
     const html = renderSidebarHtml({
       state: {
         status: SidebarStatus.SIGNED_IN,
-        serverUrl: 'https://plane.masteryhub-its.com',
+        serverUrl: 'https://plane.example.test',
         userName: 'Ada',
         avatarUrl: undefined,
         workspaces: [],
@@ -38,7 +38,7 @@ describe('renderSidebarHtml', () => {
       nonce: 'n1',
       cspSource: 'vscode-webview://test',
     });
-    expect(html).toContain('https://plane.masteryhub-its.com');
+    expect(html).toContain('https://plane.example.test');
     expect(html).toContain('(Global only)');
     expect(html).toContain('Ada');
     expect(html).not.toContain('@');
@@ -49,7 +49,7 @@ describe('renderSidebarHtml', () => {
     const html = renderSidebarHtml({
       state: {
         status: SidebarStatus.SIGNED_IN,
-        serverUrl: 'https://plane.masteryhub-its.com',
+        serverUrl: 'https://plane.example.test',
         userName: 'Ada',
         avatarUrl: undefined,
         workspaces: [
@@ -86,7 +86,7 @@ describe('renderSidebarHtml', () => {
     const html = renderSidebarHtml({
       state: {
         status: SidebarStatus.SIGNED_IN,
-        serverUrl: 'https://plane.masteryhub-its.com',
+        serverUrl: 'https://plane.example.test',
         userName: 'Ada',
         avatarUrl: undefined,
         workspaces: [
@@ -123,5 +123,18 @@ describe('renderSidebarHtml', () => {
     expect(html).toContain('id="save-filter"');
     expect(html).toContain('MH-1');
     expect(html).not.toContain('MH-2');
+  });
+
+  it('shows a loading message', () => {
+    const html = renderSidebarHtml({
+      state: {
+        status: SidebarStatus.LOADING,
+        serverUrl: 'https://plane.example.test',
+      },
+      nonce: 'n1',
+      cspSource: 'vscode-webview://test',
+    });
+    expect(html).toContain('Loading Plane');
+    expect(html).toContain('https://plane.example.test');
   });
 });

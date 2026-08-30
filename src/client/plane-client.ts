@@ -1,4 +1,4 @@
-import { API_PREFIX, ISSUES_PAGE_SIZE, MAX_ISSUE_PAGES } from '../constants';
+import { API_PREFIX, HTTP_USER_AGENT, ISSUES_PAGE_SIZE, MAX_ISSUE_PAGES } from '../constants';
 import { isPlaneError, PlaneError, PlaneErrorCode } from '../errors/plane-error';
 import { HttpMethod } from '../utils/enums/http-method.enum';
 import { credentialHeaders } from './credential-headers';
@@ -40,6 +40,7 @@ export interface PlaneClientOptions {
   readonly serverUrl: string;
   readonly http: HttpClient;
   readonly token?: string;
+  readonly fallbackWorkspaceSlug?: string;
 }
 
 type IssueCollectionSegment = 'issues' | 'work-items';
@@ -96,6 +97,27 @@ function parseWorkspace(raw: unknown): PlaneWorkspace {
     id: readString(raw['id']),
     name: readString(raw['name']),
     slug: readString(raw['slug']),
+  };
+}
+
+function parseUserSettingsWorkspace(raw: unknown): PlaneWorkspace | undefined {
+  if (!isRecord(raw)) {
+    return undefined;
+  }
+  const workspace = raw['workspace'];
+  if (!isRecord(workspace)) {
+    return undefined;
+  }
+  const slug = readString(workspace['last_workspace_slug']) || readString(workspace['fallback_workspace_slug']);
+  if (slug.length === 0) {
+    return undefined;
+  }
+  const id = readString(workspace['last_workspace_id']) || readString(workspace['fallback_workspace_id']);
+  const name = readString(workspace['last_workspace_name']);
+  return {
+    id: id.length > 0 ? id : slug,
+    name: name.length > 0 ? name : slug,
+    slug,
   };
 }
 
@@ -400,6 +422,10 @@ function parseNextCursor(raw: unknown): string | undefined {
   return typeof cursor === 'string' && cursor.length > 0 ? cursor : undefined;
 }
 
+function isCloudflare1010(body: string): boolean {
+  return body.includes('error-1010') || body.includes('Error 1010');
+}
+
 export class PlaneClient {
   private readonly state: PlaneClientState = { issueCollectionByProject: new Map() };
 
@@ -411,8 +437,23 @@ export class PlaneClient {
   }
 
   public async listWorkspaces(): Promise<readonly PlaneWorkspace[]> {
-    const raw = await this.requestJson(`${this.apiRoot()}/workspaces/`, HttpMethod.GET);
-    return parseList(raw, parseWorkspace);
+    const fromCollection = await this.tryListWorkspaces(`${this.apiRoot()}/workspaces/`);
+    if (fromCollection.length > 0) {
+      return fromCollection;
+    }
+    const fromCurrentUser = await this.tryListWorkspaces(`${this.apiRoot()}/users/me/workspaces/`);
+    if (fromCurrentUser.length > 0) {
+      return fromCurrentUser;
+    }
+    const slug = this.options.fallbackWorkspaceSlug;
+    if (slug !== undefined && slug.length > 0) {
+      return [await this.getWorkspaceBySlug(slug)];
+    }
+    const fromUserSettings = parseUserSettingsWorkspace(await this.requestJsonOrEmpty(`${this.apiRoot()}/users/me/settings/`, HttpMethod.GET));
+    if (fromUserSettings !== undefined) {
+      return [fromUserSettings];
+    }
+    throw new PlaneError('Set plane.defaultWorkspaceSlug to your workspace slug.', PlaneErrorCode.NOT_FOUND);
   }
 
   public async listProjects(workspaceSlug: string): Promise<readonly PlaneProject[]> {
@@ -697,6 +738,33 @@ export class PlaneClient {
     return parseWorkspaceSearchHits(raw, workspaceSlug);
   }
 
+  private async tryListWorkspaces(url: string): Promise<readonly PlaneWorkspace[]> {
+    const raw = await this.requestJsonOrEmpty(url, HttpMethod.GET);
+    if (!Array.isArray(raw) && !(isRecord(raw) && Array.isArray(raw['results']))) {
+      return [];
+    }
+    try {
+      return parseList(raw, parseWorkspace);
+    } catch {
+      return [];
+    }
+  }
+
+  private async getWorkspaceBySlug(slug: string): Promise<PlaneWorkspace> {
+    try {
+      const raw = await this.requestJson(`${this.apiRoot()}/workspaces/${encodeURIComponent(slug)}/`, HttpMethod.GET);
+      if (isRecord(raw) && isRecord(raw['workspace'])) {
+        return parseWorkspace(raw['workspace']);
+      }
+      return parseWorkspace(raw);
+    } catch (error: unknown) {
+      if (isPlaneError(error) && (error.code === PlaneErrorCode.NOT_FOUND || error.code === PlaneErrorCode.UNAUTHENTICATED)) {
+        return { id: slug, name: slug, slug };
+      }
+      throw error;
+    }
+  }
+
   private async findProject(workspaceSlug: string, projectId: string): Promise<PlaneProject> {
     const projects = await this.listProjects(workspaceSlug);
     const match = projects.find((project) => project.id === projectId);
@@ -731,6 +799,7 @@ export class PlaneClient {
     return {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      'User-Agent': HTTP_USER_AGENT,
       ...credentialHeaders(this.options.token),
     };
   }
@@ -754,6 +823,12 @@ export class PlaneClient {
       ...(body === undefined ? {} : { body }),
     });
 
+    if (response.status === 408) {
+      throw new PlaneError('Plane API timed out. Try Force reload.', PlaneErrorCode.HTTP_ERROR);
+    }
+    if (response.status === 403 && isCloudflare1010(response.body)) {
+      throw new PlaneError('Cloudflare blocked the Plane API (error 1010). Allow API clients on /api/v1 or disable Bot Fight Mode for that path.', PlaneErrorCode.HTTP_ERROR);
+    }
     if (response.status === 401 || response.status === 403) {
       throw new PlaneError('Plane authentication failed', PlaneErrorCode.UNAUTHENTICATED);
     }

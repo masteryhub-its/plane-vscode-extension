@@ -15,5 +15,5 @@ This file is for humans and coding agents working in this repo.
 
 - Auth is PAT only (`X-API-Key`), bound to `plane.serverUrl` in Secret Storage.
 - Issue collection path: try `/issues/`, fallback `/work-items/` on 404.
+- Workspace list: try `/workspaces/`, then `/users/me/workspaces/`, then `plane.defaultWorkspaceSlug`, then `/users/me/settings/` last/fallback workspace slug. Do not hardcode private instance URLs or workspace slugs in docs, package defaults, or server presets.
 - Open issues in the system browser; do not embed Plane in a webview iframe.
-- Default workspace slug for MasteryHub: `masteryhub-its` (still list workspaces from API).

@@ -25,4 +25,8 @@ describe('settings', () => {
   it('normalizes optional slugs', () => {
     expect(normalizeSettings({ serverUrl: DEFAULT_SERVER_URL, defaultWorkspaceSlug: 'acme', defaultProjectId: '', showAssignedBadge: false }).defaultWorkspaceSlug).toBe('acme');
   });
+
+  it('leaves an empty workspace slug unset', () => {
+    expect(normalizeSettings({ serverUrl: DEFAULT_SERVER_URL, defaultWorkspaceSlug: '', defaultProjectId: '', showAssignedBadge: false }).defaultWorkspaceSlug).toBeUndefined();
+  });
 });

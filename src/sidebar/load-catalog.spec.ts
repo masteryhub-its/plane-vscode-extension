@@ -30,4 +30,39 @@ describe('loadSidebarCatalog', () => {
     expect(catalog).toHaveLength(1);
     expect(catalog[0]?.projects[0]?.issues[0]?.key).toBe('MH-1');
   });
+
+  it('can load projects without waiting for issues', async () => {
+    const responses: HttpResponse[] = [jsonResponse(200, [{ id: 'w1', name: 'MasteryHub', slug: 'acme' }]), jsonResponse(200, [{ id: 'p1', name: 'Core', identifier: 'MH' }])];
+    const queue = [...responses];
+    const http: HttpClient = (_request: HttpRequest) => {
+      const next = queue.shift();
+      if (next === undefined) {
+        throw new Error('missing response');
+      }
+      return Promise.resolve(next);
+    };
+    const client = new PlaneClient({ serverUrl: 'https://plane.test', http, token: 'plane_api_test' });
+    const catalog = await loadSidebarCatalog(client, { includeIssues: false });
+    expect(catalog[0]?.projects).toEqual([{ id: 'p1', name: 'Core', identifier: 'MH', issues: [] }]);
+  });
+
+  it('keeps the project when issue listing fails', async () => {
+    const responses: HttpResponse[] = [
+      jsonResponse(200, [{ id: 'w1', name: 'MasteryHub', slug: 'acme' }]),
+      jsonResponse(200, [{ id: 'p1', name: 'Core', identifier: 'MH' }]),
+      jsonResponse(200, [{ id: 'p1', name: 'Core', identifier: 'MH' }]),
+      jsonResponse(500, { error: 'boom' }),
+    ];
+    const queue = [...responses];
+    const http: HttpClient = (_request: HttpRequest) => {
+      const next = queue.shift();
+      if (next === undefined) {
+        throw new Error('missing response');
+      }
+      return Promise.resolve(next);
+    };
+    const client = new PlaneClient({ serverUrl: 'https://plane.test', http, token: 'plane_api_test' });
+    const catalog = await loadSidebarCatalog(client);
+    expect(catalog[0]?.projects[0]).toEqual({ id: 'p1', name: 'Core', identifier: 'MH', issues: [] });
+  });
 });

@@ -3,26 +3,26 @@ import { buildIssueBrowseUrl, buildIssueProjectUrl, buildIssueUrl } from './issu
 describe('issue-url', () => {
   it('prefers browse URL when identifier and sequence exist', () => {
     expect(
-      buildIssueUrl('https://plane.masteryhub-its.com', {
-        workspaceSlug: 'masteryhub-its',
+      buildIssueUrl('https://plane.example.test', {
+        workspaceSlug: 'acme',
         projectId: 'proj-1',
         issueId: 'issue-1',
         projectIdentifier: 'MH',
         sequenceId: 42,
       })
-    ).toBe('https://plane.masteryhub-its.com/masteryhub-its/browse/MH-42/');
+    ).toBe('https://plane.example.test/acme/browse/MH-42/');
   });
 
   it('falls back to project issue URL', () => {
     expect(
-      buildIssueUrl('https://plane.masteryhub-its.com/', {
-        workspaceSlug: 'masteryhub-its',
+      buildIssueUrl('https://plane.example.test/', {
+        workspaceSlug: 'acme',
         projectId: 'proj-1',
         issueId: 'issue-1',
         projectIdentifier: '',
         sequenceId: 0,
       })
-    ).toBe('https://plane.masteryhub-its.com/masteryhub-its/projects/proj-1/issues/issue-1/');
+    ).toBe('https://plane.example.test/acme/projects/proj-1/issues/issue-1/');
   });
 
   it('builds browse and project URLs directly', () => {

@@ -5,7 +5,7 @@ import { SidebarMessageType } from '../utils/enums/sidebar-message-type.enum';
 import { SidebarStatus } from '../utils/enums/sidebar-status.enum';
 import { escapeHtml } from './escape-html';
 import { filterSidebarCatalog } from './filter-catalog';
-import type { SidebarHtmlInput, SignedInSidebarState, SignedOutSidebarState } from './sidebar.types';
+import type { SidebarHtmlInput, LoadingSidebarState, SignedInSidebarState, SignedOutSidebarState } from './sidebar.types';
 
 const PLANE_LOGO_SVG = `<svg class="logo" viewBox="0 0 85 52" aria-hidden="true" focusable="false">
   <path fill="currentColor" d="M44.3223 2.9264C44.3223 0.754665 46.6083 -0.65811 48.5508 0.313121L80.4551 16.2653C82.9294 17.5024 84.4922 20.0321 84.4922 22.7985V48.2487C84.4922 50.4204 82.2071 51.833 80.2646 50.8619L62.3281 41.8932V22.7975C62.3281 20.0311 60.7653 17.5015 58.291 16.2643L44.3223 9.27992V2.9264ZM0 2.92543C8.01645e-05 0.753753 2.28609 -0.659069 4.22852 0.312144L22.1582 9.27699V28.3766C22.1582 31.1428 23.7213 33.6716 26.1953 34.9088L40.1699 41.8952V48.2487C40.1697 50.4202 37.8847 51.832 35.9424 50.861L4.03711 34.9088C1.56305 33.6716 0 31.1428 0 28.3766V2.92543ZM22.1582 2.92543C22.1583 0.753753 24.4443 -0.659069 26.3867 0.312144L44.3223 9.27992V28.3776C44.3223 31.1439 45.8861 33.6727 48.3604 34.9098L62.3281 41.8932V48.2487C62.3279 50.4202 60.0429 51.832 58.1006 50.861L40.1699 41.8952V22.7975C40.1699 20.0311 38.6071 17.5015 36.1328 16.2643L22.1582 9.27699V2.92543Z"/>
@@ -13,7 +13,7 @@ const PLANE_LOGO_SVG = `<svg class="logo" viewBox="0 0 85 52" aria-hidden="true"
 
 export function renderSidebarHtml(input: SidebarHtmlInput): string {
   const { state, nonce, cspSource } = input;
-  const body = state.status === SidebarStatus.SIGNED_OUT ? renderSignedOut(state) : renderSignedIn(state);
+  const body = state.status === SidebarStatus.SIGNED_OUT ? renderSignedOut(state) : state.status === SidebarStatus.LOADING ? renderLoading(state) : renderSignedIn(state);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,6 +62,16 @@ function renderServerPicker(serverUrl: string, locked: boolean): string {
     <input id="server-url" name="serverUrl" type="url" value="${escapeHtml(serverUrl)}" ${disabled} />
     <button type="button" id="save-server" ${disabled}>Save server</button>
     <p class="hint">${hint}</p>
+  </section>`;
+}
+
+function renderLoading(state: LoadingSidebarState): string {
+  return `
+  ${renderBrand()}
+  <section class="card">
+    <h2>Loading Plane</h2>
+    <p class="muted">${escapeHtml(state.serverUrl)}</p>
+    <p class="hint">Talking to the Plane API. This can take a minute when Cloudflare is slow.</p>
   </section>`;
 }
 

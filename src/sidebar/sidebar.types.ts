@@ -49,7 +49,12 @@ export interface SignedInSidebarState {
   readonly activeFilterId: string | undefined;
 }
 
-export type SidebarState = SignedOutSidebarState | SignedInSidebarState;
+export interface LoadingSidebarState {
+  readonly status: SidebarStatus.LOADING;
+  readonly serverUrl: string;
+}
+
+export type SidebarState = SignedOutSidebarState | SignedInSidebarState | LoadingSidebarState;
 
 export interface SignInWithPatMessage {
   readonly type: SidebarMessageType.SIGN_IN_WITH_PAT;

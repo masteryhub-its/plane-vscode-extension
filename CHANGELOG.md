@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.2 — 2026-08-29
+
+- Show a loading screen immediately instead of a blank sidebar
+- Retry timed-out Plane API calls once; map hangs to a clear timeout error
+- Wait up to 60s per request (Cloudflare/origin can take ~26s)
+
+## 0.5.1 — 2026-08-29
+
+- Resolve workspace when Plane's retrieve-by-slug route is session-only (401)
+- Show projects before issue lists finish; keep a project if issue listing fails
+- Send a browser-like User-Agent so Cloudflare Bot Fight Mode (1010) does not block the API
+- Abort hung Plane API requests after 45 seconds
+
 ## 0.5.0 — 2026-08-28
 
 Daily-driver release covering the v0.2–v0.5 roadmap.

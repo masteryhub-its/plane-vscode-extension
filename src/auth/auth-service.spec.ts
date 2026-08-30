@@ -70,4 +70,39 @@ describe('AuthService', () => {
     serverUrl = 'https://other.test';
     expect(await auth.readToken()).toBeUndefined();
   });
+
+  it('uses the configured workspace slug when Plane has no workspace list', async () => {
+    const queue = [jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' }), jsonResponse(200, { id: 'w1', name: 'Acme', slug: 'acme' })];
+    const http: HttpClient = () => {
+      const next = queue.shift();
+      if (next === undefined) {
+        throw new Error('missing response');
+      }
+      return Promise.resolve(next);
+    };
+    const auth = new AuthService({
+      secrets: new MemorySecretStore(),
+      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: 'acme', defaultProjectId: undefined, showAssignedBadge: false }),
+      http,
+    });
+    const workspaces = await auth.createClient('plane_api_test').listWorkspaces();
+    expect(workspaces).toEqual([{ id: 'w1', name: 'Acme', slug: 'acme' }]);
+  });
+
+  it('does not invent a workspace slug when settings omit one', async () => {
+    const queue = [jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' })];
+    const http: HttpClient = () => {
+      const next = queue.shift();
+      if (next === undefined) {
+        throw new Error('missing response');
+      }
+      return Promise.resolve(next);
+    };
+    const auth = new AuthService({
+      secrets: new MemorySecretStore(),
+      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: undefined, defaultProjectId: undefined, showAssignedBadge: false }),
+      http,
+    });
+    await expect(auth.createClient('plane_api_test').listWorkspaces()).rejects.toThrow('Set plane.defaultWorkspaceSlug');
+  });
 });

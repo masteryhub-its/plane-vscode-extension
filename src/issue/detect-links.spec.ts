@@ -6,10 +6,10 @@ describe('detect-links', () => {
   });
 
   it('detects browse and project URLs', () => {
-    const server = 'https://plane.masteryhub-its.com';
-    const browse = detectPlaneUrls(`${server}/masteryhub-its/browse/MH-7/`, server);
+    const server = 'https://plane.example.test';
+    const browse = detectPlaneUrls(`${server}/acme/browse/MH-7/`, server);
     expect(browse[0]?.browseKey).toBe('MH');
-    const project = detectPlaneUrls(`${server}/masteryhub-its/projects/550e8400-e29b-41d4-a716-446655440000/issues/650e8400-e29b-41d4-a716-446655440000/`, server);
+    const project = detectPlaneUrls(`${server}/acme/projects/550e8400-e29b-41d4-a716-446655440000/issues/650e8400-e29b-41d4-a716-446655440000/`, server);
     expect(project[0]?.issueId).toBe('650e8400-e29b-41d4-a716-446655440000');
   });
 });

@@ -31,8 +31,8 @@ function createFakeHttp(responses: HttpResponse[]): FakeHttp {
   return { client, requests };
 }
 
-const SERVER = 'https://plane.masteryhub-its.com';
-const SLUG = 'masteryhub-its';
+const SERVER = 'https://plane.example.test';
+const SLUG = 'acme';
 const PROJECT_ID = 'proj-1';
 const ISSUE_ID = 'issue-1';
 
@@ -43,6 +43,7 @@ describe('PlaneClient', () => {
     const user = await plane.currentUser();
     expect(user.email).toBe('dev@example.com');
     expect(requests[0]?.headers['X-API-Key']).toBe('plane_api_test');
+    expect(requests[0]?.headers['User-Agent']).toContain('Chrome/');
     expect(requests[0]?.url).toBe(`${SERVER}${API_PREFIX}/users/me/`);
   });
 
@@ -197,6 +198,28 @@ describe('PlaneClient', () => {
     });
   });
 
+  it('explains Cloudflare 1010 instead of treating it as a bad PAT', async () => {
+    const { client } = createFakeHttp([
+      jsonResponse(403, {
+        type: 'https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/',
+      }),
+    ]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
+    await expect(plane.currentUser()).rejects.toMatchObject({
+      code: 'HTTP_ERROR',
+      message: 'Cloudflare blocked the Plane API (error 1010). Allow API clients on /api/v1 or disable Bot Fight Mode for that path.',
+    });
+  });
+
+  it('explains an API timeout', async () => {
+    const { client } = createFakeHttp([{ status: 408, headers: new Map(), setCookie: [], body: '' }]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
+    await expect(plane.currentUser()).rejects.toMatchObject({
+      code: 'HTTP_ERROR',
+      message: 'Plane API timed out. Try Force reload.',
+    });
+  });
+
   it('lists cycles and treats missing cycle routes as empty', async () => {
     const { client } = createFakeHttp([jsonResponse(200, [{ id: 'cyc-1', name: 'Sprint 1', status: 'current' }]), jsonResponse(404, {})]);
     const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
@@ -235,6 +258,88 @@ describe('PlaneClient', () => {
     expect(archived.id).toBe(ISSUE_ID);
     const archiveBody: unknown = JSON.parse(requests[3]?.body ?? '{}');
     expect(typeof archiveBody === 'object' && archiveBody !== null && !Array.isArray(archiveBody) && typeof (archiveBody as Record<string, unknown>)['archived_at'] === 'string').toBe(true);
+  });
+
+  it('uses users/me/workspaces when the workspace collection 404s', async () => {
+    const { client } = createFakeHttp([jsonResponse(404, { error: 'Page not found.' }), jsonResponse(200, [{ id: 'w1', name: 'MasteryHub', slug: SLUG }])]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
+    const workspaces = await plane.listWorkspaces();
+    expect(workspaces).toEqual([{ id: 'w1', name: 'MasteryHub', slug: SLUG }]);
+  });
+
+  it('loads the configured workspace when Plane has no workspace list API', async () => {
+    const { client } = createFakeHttp([
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(200, { id: 'w1', name: 'MasteryHub', slug: SLUG }),
+    ]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test', fallbackWorkspaceSlug: SLUG });
+    const workspaces = await plane.listWorkspaces();
+    expect(workspaces).toEqual([{ id: 'w1', name: 'MasteryHub', slug: SLUG }]);
+  });
+
+  it('uses last visited workspace from users/me/settings when lists 404', async () => {
+    const { client } = createFakeHttp([
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(200, {
+        id: 'u1',
+        email: 'dev@example.com',
+        workspace: {
+          last_workspace_id: 'w1',
+          last_workspace_slug: SLUG,
+          last_workspace_name: 'Acme',
+          fallback_workspace_slug: '',
+        },
+      }),
+    ]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
+    const workspaces = await plane.listWorkspaces();
+    expect(workspaces).toEqual([{ id: 'w1', name: 'Acme', slug: SLUG }]);
+  });
+
+  it('uses fallback workspace slug from users/me/settings when last visited is empty', async () => {
+    const { client } = createFakeHttp([
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(200, {
+        id: 'u1',
+        email: 'dev@example.com',
+        workspace: {
+          last_workspace_id: null,
+          last_workspace_slug: null,
+          fallback_workspace_id: 'w2',
+          fallback_workspace_slug: SLUG,
+        },
+      }),
+    ]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
+    const workspaces = await plane.listWorkspaces();
+    expect(workspaces).toEqual([{ id: 'w2', name: SLUG, slug: SLUG }]);
+  });
+
+  it('tells the user to set a workspace slug when none is configured', async () => {
+    const { client } = createFakeHttp([jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' })]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
+    await expect(plane.listWorkspaces()).rejects.toThrow('Set plane.defaultWorkspaceSlug');
+  });
+
+  it('uses the workspace slug itself when retrieve also 404s', async () => {
+    const { client } = createFakeHttp([jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' })]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test', fallbackWorkspaceSlug: SLUG });
+    const workspaces = await plane.listWorkspaces();
+    expect(workspaces).toEqual([{ id: SLUG, name: SLUG, slug: SLUG }]);
+  });
+
+  it('uses the workspace slug itself when retrieve requires session auth', async () => {
+    const { client } = createFakeHttp([
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(404, { error: 'Page not found.' }),
+      jsonResponse(401, { detail: 'Authentication credentials were not provided.' }),
+    ]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test', fallbackWorkspaceSlug: SLUG });
+    const workspaces = await plane.listWorkspaces();
+    expect(workspaces).toEqual([{ id: SLUG, name: SLUG, slug: SLUG }]);
   });
 
   it('parses workspace search hits', async () => {

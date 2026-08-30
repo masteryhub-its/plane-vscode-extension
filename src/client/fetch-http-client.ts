@@ -1,3 +1,4 @@
+import { FETCH_TIMEOUT_MS } from '../constants';
 import type { HttpClient, HttpMethod, HttpRequest, HttpResponse } from './http.types';
 
 function readSetCookie(headers: Headers): readonly string[] {
@@ -13,33 +14,58 @@ interface FetchRequestInit {
   headers: Readonly<Record<string, string>>;
   body?: string;
   redirect: 'manual';
+  signal: AbortSignal;
 }
 
-export const fetchHttpClient: HttpClient = async (request: HttpRequest): Promise<HttpResponse> => {
+function isTimeoutError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'name' in error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+}
+
+const TIMEOUT_RESPONSE: HttpResponse = {
+  status: 408,
+  headers: new Map(),
+  setCookie: [],
+  body: '',
+};
+
+async function fetchOnce(request: HttpRequest): Promise<HttpResponse | undefined> {
   const init: FetchRequestInit = {
     method: request.method,
     headers: request.headers,
     redirect: 'manual',
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   };
   if (request.body !== undefined) {
     init.body = request.body;
   }
+  try {
+    const response = await fetch(request.url, init);
+    const headers = new Map<string, string>();
+    response.headers.forEach((value, key) => {
+      headers.set(key.toLowerCase(), value);
+    });
+    const buffer = await response.arrayBuffer();
+    const bodyBytes = new Uint8Array(buffer);
+    return {
+      status: response.status,
+      headers,
+      setCookie: readSetCookie(response.headers),
+      body: new TextDecoder().decode(bodyBytes),
+      bodyBytes,
+    };
+  } catch (error: unknown) {
+    if (isTimeoutError(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+}
 
-  const response = await fetch(request.url, init);
-
-  const headers = new Map<string, string>();
-  response.headers.forEach((value, key) => {
-    headers.set(key.toLowerCase(), value);
-  });
-
-  const buffer = await response.arrayBuffer();
-  const bodyBytes = new Uint8Array(buffer);
-
-  return {
-    status: response.status,
-    headers,
-    setCookie: readSetCookie(response.headers),
-    body: new TextDecoder().decode(bodyBytes),
-    bodyBytes,
-  };
+export const fetchHttpClient: HttpClient = async (request: HttpRequest): Promise<HttpResponse> => {
+  const first = await fetchOnce(request);
+  if (first !== undefined) {
+    return first;
+  }
+  const retry = await fetchOnce(request);
+  return retry ?? TIMEOUT_RESPONSE;
 };

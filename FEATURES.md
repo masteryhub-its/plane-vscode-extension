@@ -1,8 +1,8 @@
-# Features — Plane by MasteryHub v0.5.0
+# Features — Plane by MasteryHub v0.5.2
 
 ## Connect
 
-- MasteryHub ITS Plane (`https://plane.masteryhub-its.com`), Plane Cloud, or custom self-hosted URL
+- Plane Cloud (`https://app.plane.so`) or a custom self-hosted URL
 - Sign in with personal access token (password input); sign out from sidebar, Issues toolbar, or palette
 - Status bar shows signed-in display name or sign-in prompt
 - VS Code and Cursor 1.90+

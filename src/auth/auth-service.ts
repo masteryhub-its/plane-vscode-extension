@@ -50,10 +50,12 @@ export class AuthService {
   public createClient(token?: string): PlaneClient {
     const settings = this.input.settings.read();
     const resolvedToken = token ?? undefined;
+    const fallbackWorkspaceSlug = settings.defaultWorkspaceSlug;
     return new PlaneClient({
       serverUrl: settings.serverUrl,
       http: this.input.http,
       ...(resolvedToken === undefined ? {} : { token: resolvedToken }),
+      ...(fallbackWorkspaceSlug === undefined ? {} : { fallbackWorkspaceSlug }),
     });
   }
 

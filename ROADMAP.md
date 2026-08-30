@@ -3,15 +3,15 @@
 Product plan for the VS Code / Cursor client. **Shipped behavior** is in [FEATURES.md](./FEATURES.md). This file is the forward-looking catalog: phases, priorities, and permanent non-goals.
 
 **Extension id:** `masteryhub-its.plane`  
-**Current release:** v0.5.0  
-**Default server:** `https://plane.masteryhub-its.com` (Global only)  
+**Current release:** v0.5.2  
+**Default server:** Plane Cloud (`https://app.plane.so`); set `plane.serverUrl` for self-hosted  
 **Stack:** REST `/api/v1` with `X-API-Key` (PAT) — no WebSocket in v0.x
 
 ---
 
 ## Honest assessment — should you install today?
 
-**Short answer: yes for daily triage.** v0.5.0 covers browse, preview, comments, field edits, archive/delete, and my-issues. Cycles/modules are read-only. Full PM admin still lives in the Plane web app.
+**Short answer: yes for daily triage.** v0.5.2 covers browse, preview, comments, field edits, archive/delete, and my-issues. Cycles/modules are read-only. Full PM admin still lives in the Plane web app.
 
 ### What you can do today (installed)
 
@@ -210,7 +210,7 @@ Project URL: `{server}/{slug}/projects/{project_id}/issues/{issue_id}/`
 
 ## Related
 
-- [FEATURES.md](./FEATURES.md) — what v0.5.0 does today  
+- [FEATURES.md](./FEATURES.md) — what v0.5.2 does today  
 - [CODE_STANDARDS.md](./CODE_STANDARDS.md) — engineering bar (shared with AFFiNE)  
 - [SECURITY.md](./SECURITY.md) — vulnerability reports  
 - AFFiNE sibling: [affine-vscode-extension ROADMAP](https://github.com/masteryhub-its/affine-vscode-extension/blob/main/ROADMAP.md) (separate product plan)

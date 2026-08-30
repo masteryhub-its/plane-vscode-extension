@@ -23,3 +23,4 @@ AGENTS.md
 coverage/**
 node_modules/**
 **/.DS_Store
+media/plane-icon.svg

@@ -33,7 +33,7 @@ import { PLANE_TREE_VIEW_ID, PlaneTreeProvider } from './tree-provider';
 
 export function activatePlane(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel('Plane');
-  output.appendLine('Plane extension activated');
+  output.appendLine('Plane extension activated v0.5.2');
 
   const settings = new VsCodeSettingsReader();
   const auth = new AuthService({

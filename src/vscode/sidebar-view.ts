@@ -42,6 +42,7 @@ export class PlaneSidebarView implements vscode.WebviewViewProvider {
   private lastSyncedLabel: string | undefined;
   private error: string | undefined;
   private busy = false;
+  private bootstrapping = false;
   private savedFilters: readonly SavedIssueFilter[] = [];
   private activeFilterId: string | undefined;
 
@@ -104,11 +105,14 @@ export class PlaneSidebarView implements vscode.WebviewViewProvider {
     webview.onDidReceiveMessage((message: unknown) => {
       void this.onMessage(message);
     });
+    this.bootstrapping = true;
+    this.render();
     void this.bootstrap();
   }
 
   private async bootstrap(): Promise<void> {
     try {
+      this.options.output.appendLine('Fetching current user…');
       const user = await this.options.auth.currentUser();
       if (user === undefined) {
         this.email = undefined;
@@ -123,10 +127,16 @@ export class PlaneSidebarView implements vscode.WebviewViewProvider {
         this.userId = user.id;
         this.avatarUrl = user.avatarUrl;
         const client = await this.options.auth.requireClient();
-        this.catalog = await loadSidebarCatalog(client);
+        this.options.output.appendLine('Loading projects…');
+        this.catalog = await loadSidebarCatalog(client, { includeIssues: false });
         this.lastSyncedLabel = formatSyncedLabel(new Date());
         this.error = undefined;
+        this.bootstrapping = false;
         this.setSignedInContext(true);
+        this.render();
+        this.options.output.appendLine('Loading issues…');
+        this.catalog = await loadSidebarCatalog(client, { includeIssues: true });
+        this.lastSyncedLabel = formatSyncedLabel(new Date());
         this.options.onAssignedCount(myIssuesFromCatalog(this.catalog, this.userId ?? '').length);
       }
     } catch (error: unknown) {
@@ -142,6 +152,7 @@ export class PlaneSidebarView implements vscode.WebviewViewProvider {
         this.options.output.appendLine(`Sidebar load failed: ${this.error}`);
       }
     }
+    this.bootstrapping = false;
     await this.options.statusBar.refresh(this.options.auth);
     this.options.onAuthChanged();
     this.render();
@@ -269,6 +280,12 @@ export class PlaneSidebarView implements vscode.WebviewViewProvider {
 
   private snapshot(): SidebarState {
     const serverUrl = this.options.settings.read().serverUrl;
+    if (this.bootstrapping && this.email === undefined && this.error === undefined) {
+      return {
+        status: SidebarStatus.LOADING,
+        serverUrl,
+      };
+    }
     if (this.email === undefined) {
       return {
         status: SidebarStatus.SIGNED_OUT,
