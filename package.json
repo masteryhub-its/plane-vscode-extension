@@ -2,7 +2,7 @@
   "name": "plane",
   "displayName": "Plane by MasteryHub",
   "description": "MasteryHub ITS client for Plane — browse, preview, search, and manage issues from self-hosted or Cloud Plane inside VS Code and Cursor.",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "publisher": "masteryhub-its",
   "license": "MIT",
   "author": "MasteryHub ITS",
@@ -174,6 +174,10 @@
       {
         "command": "plane.convertIntake",
         "title": "Convert Plane Intake Item"
+      },
+      {
+        "command": "plane.exportPatToMcpEnv",
+        "title": "Export Plane PAT to MasteryHub mcp.env"
       }
     ],
     "menus": {

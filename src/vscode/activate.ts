@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { AuthService } from '../auth/auth-service';
+import { exportPatToMcpEnv } from '../auth/export-pat-to-mcp-env';
 import { fetchHttpClient } from '../client/fetch-http-client';
 import { isNotSignedInError } from '../errors/plane-error';
 import { IssueListCache } from '../sync/issue-list-cache';
@@ -24,7 +25,7 @@ import {
 } from './commands';
 import { PlaneHoverProvider } from './hover-provider';
 import { openPlaneIssuePanel } from './issue-panel';
-import { showPlaneError } from './messages';
+import { showPlaneError, showPlaneInfo } from './messages';
 import { VsCodeSecretStore } from './secret-store';
 import { VsCodeSettingsReader } from './settings-reader';
 import { PlaneSidebarView } from './sidebar-view';
@@ -33,7 +34,7 @@ import { PLANE_TREE_VIEW_ID, PlaneTreeProvider } from './tree-provider';
 
 export function activatePlane(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel('Plane');
-  output.appendLine('Plane extension activated v0.5.2');
+  output.appendLine('Plane extension activated v0.5.3');
 
   const settings = new VsCodeSettingsReader();
   const auth = new AuthService({
@@ -185,6 +186,13 @@ export function activatePlane(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('plane.bulkUpdateIssueState', () => {
       runCommand(async () => {
         await bulkUpdateIssueStateCommand(commandCtx);
+      });
+    }),
+    vscode.commands.registerCommand('plane.exportPatToMcpEnv', () => {
+      runCommand(async () => {
+        const result = await exportPatToMcpEnv({ auth, settings });
+        showPlaneInfo(`Wrote Plane PAT to ${result.envPath} for ${result.displayName || result.email} (${result.serverUrl}). Reload MCP servers next.`);
+        output.appendLine(`Exported Plane PAT to ${result.envPath} as ${result.email} (token redacted).`);
       });
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
