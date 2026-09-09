@@ -1,4 +1,4 @@
-# Features — Plane by MasteryHub v0.5.2
+# Features — Plane by MasteryHub v1.0.0
 
 ## Connect
 

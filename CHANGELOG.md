@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.0 — 2026-09-09
+
+Public store release: marketplace metadata, screenshots, and GitHub Release publish.
+
+- Publisher id `MasteryHubITS` (extension id `MasteryHubITS.plane`)
+- Default server is Plane Cloud; self-hosted URLs are entered as custom (no private instance URL in the listing)
+- Visual Studio Marketplace and Open VSX publish workflow on GitHub Release (`VSCE_PAT`, `OVSX_PAT`)
+- Marketplace screenshots captured from the real sidebar and issue preview HTML
+- README install path for Marketplace / Open VSX, with GitHub `.vsix` as the sideload fallback
+
+## 0.5.3 — 2026-09-09
+
+- Command to export the signed-in Plane PAT into a local MCP env file
+
 ## 0.5.2 — 2026-08-29
 
 - Show a loading screen immediately instead of a blank sidebar

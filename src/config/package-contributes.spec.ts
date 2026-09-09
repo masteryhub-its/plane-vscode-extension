@@ -8,6 +8,7 @@ describe('package contributes', () => {
     expect(contributes.contributes.commands.some((command) => command.command === 'plane.archiveIssue')).toBe(true);
     expect(contributes.contributes.commands.some((command) => command.command === 'plane.convertIntake')).toBe(true);
     expect(contributes.name).toBe('plane');
-    expect(contributes.version).toBe('0.5.3');
+    expect(contributes.version).toBe('1.0.0');
+    expect(contributes.publisher).toBe('MasteryHubITS');
   });
 });

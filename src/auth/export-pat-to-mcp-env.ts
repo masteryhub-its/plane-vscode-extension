@@ -32,10 +32,7 @@ export async function exportPatToMcpEnv(input: ExportPatToMcpEnvInput): Promise<
   const settings = input.settings.read();
   const workspaceSlug = settings.defaultWorkspaceSlug?.trim();
   if (workspaceSlug === undefined || workspaceSlug.length === 0) {
-    throw new PlaneError(
-      'Set plane.defaultWorkspaceSlug in Cursor settings before exporting (e.g. your workspace slug).',
-      PlaneErrorCode.UNEXPECTED_RESPONSE,
-    );
+    throw new PlaneError('Set plane.defaultWorkspaceSlug in Cursor settings before exporting (e.g. your workspace slug).', PlaneErrorCode.UNEXPECTED_RESPONSE);
   }
   const user = await input.auth.createClient(token).currentUser();
   const envPath = input.envPath ?? defaultMcpEnvPath();
@@ -45,8 +42,7 @@ export async function exportPatToMcpEnv(input: ExportPatToMcpEnvInput): Promise<
   try {
     existing = await fs.readFile(envPath, 'utf8');
   } catch (error: unknown) {
-    const isEnoent =
-      typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 'ENOENT';
+    const isEnoent = typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 'ENOENT';
     if (!isEnoent) {
       throw error;
     }

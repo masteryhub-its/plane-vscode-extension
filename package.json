@@ -2,8 +2,8 @@
   "name": "plane",
   "displayName": "Plane by MasteryHub",
   "description": "MasteryHub ITS client for Plane — browse, preview, search, and manage issues from self-hosted or Cloud Plane inside VS Code and Cursor.",
-  "version": "0.5.3",
-  "publisher": "masteryhub-its",
+  "version": "1.0.0",
+  "publisher": "MasteryHubITS",
   "license": "MIT",
   "author": "MasteryHub ITS",
   "private": false,
@@ -23,6 +23,10 @@
   "categories": [
     "Other"
   ],
+  "galleryBanner": {
+    "color": "#181818",
+    "theme": "dark"
+  },
   "keywords": [
     "plane",
     "issues",
@@ -355,7 +359,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "validate": "npm run type-check && npm run lint && npm run format:check && npm test",
-    "package": "npm run compile && vsce package --no-dependencies"
+    "package": "npm run compile && vsce package --no-dependencies",
+    "screenshots": "esbuild scripts/capture-screenshots.ts --bundle --platform=node --format=cjs --outfile=/tmp/plane-capture-screenshots.js && node /tmp/plane-capture-screenshots.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
