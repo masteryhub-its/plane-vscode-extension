@@ -4,6 +4,7 @@
 
 Security and reliability fixes from a full audit. No new screens or commands.
 
+- A connection failure now says what happened (for example "Cannot reach <host>: the connection timed out. Check your network or VPN and the server URL setting.") instead of a bare "fetch failed"
 - Allowlist HTML sanitizer for issue and comment HTML (replaces a regex filter); content security policy now forbids `base` and form targets
 - Mentions, images and task items from Plane's editor stay visible instead of vanishing
 - Timed-out writes are no longer retried; the error says the change may have been applied

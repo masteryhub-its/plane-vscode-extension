@@ -1,6 +1,8 @@
 import { FETCH_TIMEOUT_MS } from '../constants';
+import { PlaneError, PlaneErrorCode } from '../errors/plane-error';
 import { HttpMethod } from '../utils/enums/http-method.enum';
 import type { HttpClient, HttpRequest, HttpResponse } from './http.types';
+import { describeNetworkFailure } from './network-error';
 
 function readSetCookie(headers: Headers): readonly string[] {
   if ('getSetCookie' in headers && typeof headers.getSetCookie === 'function') {
@@ -58,7 +60,7 @@ async function fetchOnce(request: HttpRequest): Promise<HttpResponse | undefined
     if (isTimeoutError(error)) {
       return undefined;
     }
-    throw error;
+    throw new PlaneError(describeNetworkFailure(error, request.url, 'plane.serverUrl'), PlaneErrorCode.HTTP_ERROR, { cause: error });
   }
 }
 

@@ -84,4 +84,14 @@ describe('fetchHttpClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     global.fetch = originalFetch;
   });
+
+  it('turns a bare "fetch failed" into a message that names the host and the cause', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = () => Promise.reject(Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('x'), { code: 'UND_ERR_CONNECT_TIMEOUT' }) }));
+    try {
+      await expect(fetchHttpClient({ url: 'https://plane.example/path?secret=1', method: HttpMethod.GET, headers: {} })).rejects.toThrow(/Cannot reach plane.example: the connection timed out/u);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
