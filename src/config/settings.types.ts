@@ -3,6 +3,7 @@ export interface PlaneSettings {
   readonly defaultWorkspaceSlug: string | undefined;
   readonly defaultProjectId: string | undefined;
   readonly showAssignedBadge: boolean;
+  readonly mcpEnvPath: string | undefined;
 }
 
 export interface RawPlaneSettings {
@@ -10,6 +11,7 @@ export interface RawPlaneSettings {
   readonly defaultWorkspaceSlug: string;
   readonly defaultProjectId: string;
   readonly showAssignedBadge: boolean;
+  readonly mcpEnvPath?: string;
 }
 
 export interface SettingsReader {

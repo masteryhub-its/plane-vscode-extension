@@ -62,11 +62,24 @@ export function normalizeOptionalSlug(raw: string): string | undefined {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
+const WORKSPACE_SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/u;
+
+export function isValidWorkspaceSlug(value: string): boolean {
+  return WORKSPACE_SLUG_PATTERN.test(value);
+}
+
+/** A workspace slug ends up in URLs and in the MCP env file, so anything but a plain slug is ignored. */
+export function normalizeWorkspaceSlug(raw: string): string | undefined {
+  const trimmed = normalizeOptionalSlug(raw);
+  return trimmed !== undefined && isValidWorkspaceSlug(trimmed) ? trimmed : undefined;
+}
+
 export function normalizeSettings(raw: RawPlaneSettings): PlaneSettings {
   return {
     serverUrl: normalizeServerUrl(raw.serverUrl.length === 0 ? DEFAULT_SERVER_URL : raw.serverUrl),
-    defaultWorkspaceSlug: normalizeOptionalSlug(raw.defaultWorkspaceSlug),
+    defaultWorkspaceSlug: normalizeWorkspaceSlug(raw.defaultWorkspaceSlug),
     defaultProjectId: normalizeOptionalSlug(raw.defaultProjectId),
     showAssignedBadge: raw.showAssignedBadge,
+    mcpEnvPath: normalizeOptionalSlug(raw.mcpEnvPath ?? ''),
   };
 }

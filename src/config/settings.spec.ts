@@ -29,4 +29,12 @@ describe('settings', () => {
   it('leaves an empty workspace slug unset', () => {
     expect(normalizeSettings({ serverUrl: DEFAULT_SERVER_URL, defaultWorkspaceSlug: '', defaultProjectId: '', showAssignedBadge: false }).defaultWorkspaceSlug).toBeUndefined();
   });
+
+  it.each(['x\nNODE_OPTIONS=--require /tmp/evil.js', 'acme corp', 'acme/../x', 'a;b', '-leading-dash', 'two\rlines'])('ignores an unsafe workspace slug: %j', (slug) => {
+    expect(normalizeSettings({ serverUrl: DEFAULT_SERVER_URL, defaultWorkspaceSlug: slug, defaultProjectId: '', showAssignedBadge: false }).defaultWorkspaceSlug).toBeUndefined();
+  });
+
+  it.each(['acme', 'Acme-Team', 'team_1', 'a1'])('keeps a valid workspace slug: %s', (slug) => {
+    expect(normalizeSettings({ serverUrl: DEFAULT_SERVER_URL, defaultWorkspaceSlug: slug, defaultProjectId: '', showAssignedBadge: false }).defaultWorkspaceSlug).toBe(slug);
+  });
 });

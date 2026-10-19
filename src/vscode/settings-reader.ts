@@ -27,6 +27,7 @@ export class VsCodeSettingsReader implements SettingsStore {
       defaultWorkspaceSlug: readString(config, 'defaultWorkspaceSlug', ''),
       defaultProjectId: readString(config, 'defaultProjectId', ''),
       showAssignedBadge: config.get<unknown>('showAssignedBadge') === true,
+      mcpEnvPath: readString(config, 'mcpEnvPath', ''),
     });
   }
 
