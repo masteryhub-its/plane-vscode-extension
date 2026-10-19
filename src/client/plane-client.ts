@@ -1,4 +1,4 @@
-import { API_PREFIX, HTTP_USER_AGENT, ISSUES_PAGE_SIZE, MAX_ISSUE_PAGES } from '../constants';
+import { API_PREFIX, ISSUES_PAGE_SIZE, MAX_ISSUE_PAGES, USER_AGENT_PRODUCT } from '../constants';
 import { isPlaneError, PlaneError, PlaneErrorCode } from '../errors/plane-error';
 import { HttpMethod } from '../utils/enums/http-method.enum';
 import { credentialHeaders } from './credential-headers';
@@ -41,12 +41,18 @@ export interface PlaneClientOptions {
   readonly http: HttpClient;
   readonly token?: string;
   readonly fallbackWorkspaceSlug?: string;
+  /** Called with a human-readable note when a result is cut short (for example the page limit on issue lists). */
+  readonly onWarning?: (message: string) => void;
+  /** Value of the User-Agent header. Defaults to the bare product token. */
+  readonly userAgent?: string;
 }
 
 type IssueCollectionSegment = 'issues' | 'work-items';
 
 interface PlaneClientState {
   issueCollectionByProject: Map<string, IssueCollectionSegment>;
+  issueCollectionProbe: Map<string, Promise<IssueCollectionSegment>>;
+  projectsByWorkspace: Map<string, Promise<readonly PlaneProject[]>>;
 }
 
 function projectKey(workspaceSlug: string, projectId: string): string {
@@ -427,7 +433,11 @@ function isCloudflare1010(body: string): boolean {
 }
 
 export class PlaneClient {
-  private readonly state: PlaneClientState = { issueCollectionByProject: new Map() };
+  private readonly state: PlaneClientState = {
+    issueCollectionByProject: new Map(),
+    issueCollectionProbe: new Map(),
+    projectsByWorkspace: new Map(),
+  };
 
   public constructor(private readonly options: PlaneClientOptions) {}
 
@@ -495,6 +505,9 @@ export class PlaneClient {
       cursor = parseNextCursor(raw);
       page += 1;
     } while (cursor !== undefined && page < MAX_ISSUE_PAGES);
+    if (cursor !== undefined) {
+      this.options.onWarning?.(`Showing the first ${MAX_ISSUE_PAGES * ISSUES_PAGE_SIZE} issues of this project. Narrow the list with a filter or search to see the rest.`);
+    }
     return items;
   }
 
@@ -523,7 +536,7 @@ export class PlaneClient {
       HttpMethod.POST,
       JSON.stringify(payload)
     );
-    const project = await this.findProject(input.workspaceSlug, input.projectId);
+    const project = await this.projectAfterWrite(input.workspaceSlug, input.projectId);
     return parseIssue(raw, input.workspaceSlug, project);
   }
 
@@ -535,7 +548,7 @@ export class PlaneClient {
       HttpMethod.PATCH,
       body
     );
-    const project = await this.findProject(input.workspaceSlug, input.projectId);
+    const project = await this.projectAfterWrite(input.workspaceSlug, input.projectId);
     return parseIssue(raw, input.workspaceSlug, project);
   }
 
@@ -547,7 +560,7 @@ export class PlaneClient {
       HttpMethod.PATCH,
       body
     );
-    const project = await this.findProject(input.workspaceSlug, input.projectId);
+    const project = await this.projectAfterWrite(input.workspaceSlug, input.projectId);
     return parseIssue(raw, input.workspaceSlug, project);
   }
 
@@ -574,7 +587,7 @@ export class PlaneClient {
       HttpMethod.PATCH,
       JSON.stringify(payload)
     );
-    const project = await this.findProject(input.workspaceSlug, input.projectId);
+    const project = await this.projectAfterWrite(input.workspaceSlug, input.projectId);
     return parseIssue(raw, input.workspaceSlug, project);
   }
 
@@ -712,7 +725,7 @@ export class PlaneClient {
       HttpMethod.PATCH,
       JSON.stringify({ archived_at: new Date().toISOString() })
     );
-    const project = await this.findProject(input.workspaceSlug, input.projectId);
+    const project = await this.projectAfterWrite(input.workspaceSlug, input.projectId);
     return parseIssue(raw, input.workspaceSlug, project);
   }
 
@@ -766,12 +779,34 @@ export class PlaneClient {
   }
 
   private async findProject(workspaceSlug: string, projectId: string): Promise<PlaneProject> {
-    const projects = await this.listProjects(workspaceSlug);
+    const projects = await this.listProjectsCached(workspaceSlug);
     const match = projects.find((project) => project.id === projectId);
     if (match === undefined) {
       throw new PlaneError('Project not found', PlaneErrorCode.NOT_FOUND);
     }
     return match;
+  }
+
+  private listProjectsCached(workspaceSlug: string): Promise<readonly PlaneProject[]> {
+    const cached = this.state.projectsByWorkspace.get(workspaceSlug);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const promise = this.listProjects(workspaceSlug);
+    this.state.projectsByWorkspace.set(workspaceSlug, promise);
+    void promise.catch(() => {
+      this.state.projectsByWorkspace.delete(workspaceSlug);
+    });
+    return promise;
+  }
+
+  /** Label a successful write; a failed project lookup must not turn a saved change into an error. */
+  private async projectAfterWrite(workspaceSlug: string, projectId: string): Promise<PlaneProject> {
+    try {
+      return await this.findProject(workspaceSlug, projectId);
+    } catch {
+      return { id: projectId, name: '', identifier: '', description: '', emoji: '' };
+    }
   }
 
   private async resolveIssueCollectionSegment(workspaceSlug: string, projectId: string): Promise<IssueCollectionSegment> {
@@ -780,15 +815,38 @@ export class PlaneClient {
     if (cached !== undefined) {
       return cached;
     }
+    const inFlight = this.state.issueCollectionProbe.get(key);
+    if (inFlight !== undefined) {
+      return inFlight;
+    }
+    const probe = this.probeIssueCollectionSegment(key, workspaceSlug, projectId);
+    this.state.issueCollectionProbe.set(key, probe);
+    try {
+      return await probe;
+    } finally {
+      this.state.issueCollectionProbe.delete(key);
+    }
+  }
+
+  private async probeIssueCollectionSegment(key: string, workspaceSlug: string, projectId: string): Promise<IssueCollectionSegment> {
     const issuesUrl = `${this.apiRoot()}/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/issues/?per_page=1`;
     const response = await this.options.http({
       url: issuesUrl,
       method: HttpMethod.GET,
       headers: this.buildHeaders(),
     });
-    const segment: IssueCollectionSegment = response.status === 404 ? 'work-items' : 'issues';
-    this.state.issueCollectionByProject.set(key, segment);
-    return segment;
+    if (response.status === 404) {
+      const segment: IssueCollectionSegment = 'work-items';
+      this.state.issueCollectionByProject.set(key, segment);
+      return segment;
+    }
+    if (response.status >= 200 && response.status < 300) {
+      const segment: IssueCollectionSegment = 'issues';
+      this.state.issueCollectionByProject.set(key, segment);
+      return segment;
+    }
+    // Transient probe failure — answer for this call but do not cache.
+    return 'issues';
   }
 
   private apiRoot(): string {
@@ -799,7 +857,7 @@ export class PlaneClient {
     return {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'User-Agent': HTTP_USER_AGENT,
+      'User-Agent': this.options.userAgent ?? USER_AGENT_PRODUCT,
       ...credentialHeaders(this.options.token),
     };
   }
@@ -824,19 +882,27 @@ export class PlaneClient {
     });
 
     if (response.status === 408) {
-      throw new PlaneError('Plane API timed out. Try Force reload.', PlaneErrorCode.HTTP_ERROR);
+      const message =
+        method === HttpMethod.GET ? 'Plane API timed out. Try Force reload.' : 'Plane API timed out before the response arrived. The change may have been applied — refresh to check before retrying.';
+      throw new PlaneError(message, PlaneErrorCode.HTTP_ERROR);
     }
     if (response.status === 403 && isCloudflare1010(response.body)) {
       throw new PlaneError('Cloudflare blocked the Plane API (error 1010). Allow API clients on /api/v1 or disable Bot Fight Mode for that path.', PlaneErrorCode.HTTP_ERROR);
     }
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       throw new PlaneError('Plane authentication failed', PlaneErrorCode.UNAUTHENTICATED);
     }
+    if (response.status === 403) {
+      throw new PlaneError('Plane permission denied (403). The token cannot access this resource.', PlaneErrorCode.HTTP_ERROR);
+    }
     if (response.status === 404) {
-      throw new PlaneError('Plane resource not found', PlaneErrorCode.NOT_FOUND);
+      throw new PlaneError('Plane resource not found. Check plane.serverUrl, the workspace slug, and that your token can see this project.', PlaneErrorCode.NOT_FOUND);
     }
     if (response.status === 429) {
       throw new PlaneError(retryAfterMessage(response.headers), PlaneErrorCode.RATE_LIMITED);
+    }
+    if (response.status >= 300 && response.status < 400) {
+      throw new PlaneError(`Plane redirected the request (${response.status}). Check plane.serverUrl — https may be required.`, PlaneErrorCode.HTTP_ERROR);
     }
     if (response.status < 200 || response.status >= 300) {
       throw new PlaneError(`Plane request failed (${response.status})`, PlaneErrorCode.HTTP_ERROR);

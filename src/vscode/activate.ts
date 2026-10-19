@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { AuthService } from '../auth/auth-service';
-import { exportPatToMcpEnv } from '../auth/export-pat-to-mcp-env';
+import { exportPatToMcpEnv, mcpEnvWritePreview } from '../auth/export-pat-to-mcp-env';
 import { fetchHttpClient } from '../client/fetch-http-client';
+import { buildUserAgent } from '../constants';
 import { isNotSignedInError } from '../errors/plane-error';
 import { IssueListCache } from '../sync/issue-list-cache';
 import {
@@ -32,6 +33,11 @@ import { PlaneSidebarView } from './sidebar-view';
 import { PlaneStatusBar } from './status-bar';
 import { PLANE_TREE_VIEW_ID, PlaneTreeProvider } from './tree-provider';
 
+function extensionVersion(context: vscode.ExtensionContext): string | undefined {
+  const version: unknown = (context.extension.packageJSON as { version?: unknown }).version;
+  return typeof version === 'string' ? version : undefined;
+}
+
 export function activatePlane(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel('Plane');
   output.appendLine('Plane extension activated v1.0.0');
@@ -41,6 +47,11 @@ export function activatePlane(context: vscode.ExtensionContext): void {
     secrets: new VsCodeSecretStore(context.secrets),
     settings,
     http: fetchHttpClient,
+    userAgent: buildUserAgent(extensionVersion(context)),
+    onWarning: (message) => {
+      output.appendLine(message);
+      vscode.window.setStatusBarMessage(message, 10_000);
+    },
   });
   const statusBar = new PlaneStatusBar();
   const issueCache = new IssueListCache();
@@ -190,6 +201,15 @@ export function activatePlane(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('plane.exportPatToMcpEnv', () => {
       runCommand(async () => {
+        const preview = mcpEnvWritePreview(settings.read());
+        const confirmed = await vscode.window.showWarningMessage(
+          `Write your Plane personal access token in plaintext to ${preview.envPath}?`,
+          { modal: true, detail: `These lines will be added or replaced:\n${preview.lines.join('\n')}` },
+          'Write token'
+        );
+        if (confirmed !== 'Write token') {
+          return;
+        }
         const result = await exportPatToMcpEnv({ auth, settings });
         showPlaneInfo(`Wrote Plane PAT to ${result.envPath} for ${result.displayName || result.email} (${result.serverUrl}). Reload MCP servers next.`);
         output.appendLine(`Exported Plane PAT to ${result.envPath} as ${result.email} (token redacted).`);

@@ -47,7 +47,7 @@ describe('AuthService', () => {
     const secrets = new MemorySecretStore();
     const auth = new AuthService({
       secrets,
-      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: undefined, defaultProjectId: undefined, showAssignedBadge: false }),
+      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: undefined, defaultProjectId: undefined, showAssignedBadge: false, mcpEnvPath: undefined }),
       http,
     });
     const user = await auth.signInWithPat({ token: 'plane_api_live' });
@@ -56,11 +56,11 @@ describe('AuthService', () => {
     expect(await auth.readToken()).toBe('plane_api_live');
   });
 
-  it('clears credential when server URL changes', async () => {
+  it('treats the token as signed out when the server URL changes but keeps the credential', async () => {
     const http: HttpClient = () => Promise.resolve(jsonResponse(200, { id: 'u1', email: 'dev@example.com' }));
     const secrets = new MemorySecretStore();
     let serverUrl = 'https://plane.test';
-    const settings: PlaneSettings = { serverUrl, defaultWorkspaceSlug: undefined, defaultProjectId: undefined, showAssignedBadge: false };
+    const settings: PlaneSettings = { serverUrl, defaultWorkspaceSlug: undefined, defaultProjectId: undefined, showAssignedBadge: false, mcpEnvPath: undefined };
     const reader = {
       read: () => ({ ...settings, serverUrl }),
       writeServerUrl: (): Promise<void> => Promise.resolve(),
@@ -69,6 +69,8 @@ describe('AuthService', () => {
     await auth.signInWithPat({ token: 'plane_api_live' });
     serverUrl = 'https://other.test';
     expect(await auth.readToken()).toBeUndefined();
+    serverUrl = 'https://plane.test';
+    expect(await auth.readToken()).toBe('plane_api_live');
   });
 
   it('uses the configured workspace slug when Plane has no workspace list', async () => {
@@ -82,7 +84,7 @@ describe('AuthService', () => {
     };
     const auth = new AuthService({
       secrets: new MemorySecretStore(),
-      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: 'acme', defaultProjectId: undefined, showAssignedBadge: false }),
+      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: 'acme', defaultProjectId: undefined, showAssignedBadge: false, mcpEnvPath: undefined }),
       http,
     });
     const workspaces = await auth.createClient('plane_api_test').listWorkspaces();
@@ -100,7 +102,7 @@ describe('AuthService', () => {
     };
     const auth = new AuthService({
       secrets: new MemorySecretStore(),
-      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: undefined, defaultProjectId: undefined, showAssignedBadge: false }),
+      settings: new FixedSettings({ serverUrl: 'https://plane.test', defaultWorkspaceSlug: undefined, defaultProjectId: undefined, showAssignedBadge: false, mcpEnvPath: undefined }),
       http,
     });
     await expect(auth.createClient('plane_api_test').listWorkspaces()).rejects.toThrow('Set plane.defaultWorkspaceSlug');

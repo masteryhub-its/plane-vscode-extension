@@ -44,4 +44,44 @@ describe('fetchHttpClient', () => {
     expect(response.status).toBe(408);
     global.fetch = originalFetch;
   });
+
+  it('retries a timed-out GET once', async () => {
+    const originalFetch = global.fetch;
+    class FakeTimeoutError extends Error {
+      public override readonly name = 'TimeoutError';
+    }
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(new FakeTimeoutError('timeout'))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    global.fetch = fetchMock as typeof fetch;
+    const request: HttpRequest = {
+      url: 'https://plane.example/api/v1/users/me/',
+      method: HttpMethod.GET,
+      headers: { Accept: 'application/json' },
+    };
+    const response = await fetchHttpClient(request);
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    global.fetch = originalFetch;
+  });
+
+  it('does not retry a timed-out write', async () => {
+    const originalFetch = global.fetch;
+    class FakeTimeoutError extends Error {
+      public override readonly name = 'TimeoutError';
+    }
+    const fetchMock = jest.fn(() => Promise.reject(new FakeTimeoutError('timeout')));
+    global.fetch = fetchMock as typeof fetch;
+    const request: HttpRequest = {
+      url: 'https://plane.example/api/v1/issues/',
+      method: HttpMethod.POST,
+      headers: { Accept: 'application/json' },
+      body: '{}',
+    };
+    const response = await fetchHttpClient(request);
+    expect(response.status).toBe(408);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    global.fetch = originalFetch;
+  });
 });

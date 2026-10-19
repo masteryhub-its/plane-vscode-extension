@@ -13,7 +13,7 @@ import { draftFromIntake, draftFromTemplate, type CreateIssueDraft } from '../is
 import { ARCHIVE_CONFIRM_ACTION, DELETE_CONFIRM_ACTION, isArchiveConfirmed, isDeleteConfirmed, isOverwriteConfirmed, OVERWRITE_CONFIRM_ACTION } from '../issue/confirm-issue-action';
 import { formatIssueKey } from '../issue/issue-key';
 import { buildIssueUrl } from '../client/issue-url';
-import { bulkStateChangeInputs } from '../tree/bulk-state';
+import { groupIssuesByProject } from '../tree/bulk-state';
 import { parseIssueNode, parseIssueNodes, toIssueNode, type PlaneTreeIssueNode } from '../tree/tree-model';
 import { PlanePriority } from '../utils/enums/plane-priority.enum';
 import { planePriorityLabel } from '../utils/plane-priority';
@@ -508,19 +508,50 @@ export async function bulkUpdateIssueStateCommand(ctx: PlaneCommandContext): Pro
     return;
   }
   const client = await ctx.auth.requireClient();
-  const first = selected[0];
+  const groups = groupIssuesByProject(selected);
+  const first = groups[0];
   if (first === undefined) {
     return;
   }
-  const states = await client.listStates(first.workspaceSlug, first.projectId);
-  const picked = await pickState(states);
+  const statesByProject = new Map<string, readonly PlaneState[]>();
+  for (const group of groups) {
+    const states = await client.listStates(group.workspaceSlug, group.projectId).catch(() => []);
+    statesByProject.set(`${group.workspaceSlug}:${group.projectId}`, states);
+  }
+  const firstStates = statesByProject.get(`${first.workspaceSlug}:${first.projectId}`) ?? [];
+  if (firstStates.length === 0) {
+    showPlaneError(new Error('No states found for the selected issues'));
+    return;
+  }
+  const picked = await pickState(firstStates);
   if (picked === undefined) {
     return;
   }
-  for (const input of bulkStateChangeInputs(selected, picked.stateId)) {
-    await client.updateIssueState(input);
+  const confirmed = await vscode.window.showWarningMessage(`Change state to "${picked.label}" on ${selected.length} issue(s) across ${groups.length} project(s)?`, { modal: true }, 'Change state');
+  if (confirmed !== 'Change state') {
+    return;
   }
-  showPlaneInfo(`Updated state on ${selected.length} issues`);
+  const failures: string[] = [];
+  let updated = 0;
+  for (const group of groups) {
+    const states = statesByProject.get(`${group.workspaceSlug}:${group.projectId}`) ?? [];
+    const isSourceProject = group.workspaceSlug === first.workspaceSlug && group.projectId === first.projectId;
+    const target = isSourceProject ? picked.stateId : states.find((state) => state.name === picked.label)?.id;
+    if (target === undefined) {
+      failures.push(...group.issues.map((issue) => `${issue.label}: project has no "${picked.label}" state`));
+      continue;
+    }
+    for (const issue of group.issues) {
+      try {
+        await client.updateIssueState({ workspaceSlug: issue.workspaceSlug, projectId: issue.projectId, issueId: issue.issueId, stateId: target });
+        updated += 1;
+      } catch (error: unknown) {
+        failures.push(`${issue.label}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  const failureNote = failures.length > 0 ? `; ${failures.length} failed: ${failures.slice(0, 5).join('; ')}${failures.length > 5 ? '…' : ''}` : '';
+  showPlaneInfo(`Updated state on ${updated} of ${selected.length} issues${failureNote}`);
   ctx.tree.refresh();
 }
 

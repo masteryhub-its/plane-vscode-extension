@@ -10,6 +10,8 @@ export interface CreateAuthServiceInput {
   readonly secrets: SecretStore;
   readonly settings: SettingsReader;
   readonly http: HttpClient;
+  readonly userAgent?: string;
+  readonly onWarning?: (message: string) => void;
 }
 
 export class AuthService {
@@ -31,7 +33,7 @@ export class AuthService {
 
     const serverUrl = this.input.settings.read().serverUrl;
     if (bound.serverUrl !== serverUrl) {
-      await this.clearCredential();
+      // A settings mismatch must not sign the user out; clear only on explicit sign-out or re-bind.
       return undefined;
     }
 
@@ -54,6 +56,8 @@ export class AuthService {
     return new PlaneClient({
       serverUrl: settings.serverUrl,
       http: this.input.http,
+      ...(this.input.userAgent === undefined ? {} : { userAgent: this.input.userAgent }),
+      ...(this.input.onWarning === undefined ? {} : { onWarning: this.input.onWarning }),
       ...(resolvedToken === undefined ? {} : { token: resolvedToken }),
       ...(fallbackWorkspaceSlug === undefined ? {} : { fallbackWorkspaceSlug }),
     });

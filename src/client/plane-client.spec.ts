@@ -43,8 +43,14 @@ describe('PlaneClient', () => {
     const user = await plane.currentUser();
     expect(user.email).toBe('dev@example.com');
     expect(requests[0]?.headers['X-API-Key']).toBe('plane_api_test');
-    expect(requests[0]?.headers['User-Agent']).toContain('Chrome/');
+    expect(requests[0]?.headers['User-Agent']).toBe('Plane-VSCode');
     expect(requests[0]?.url).toBe(`${SERVER}${API_PREFIX}/users/me/`);
+  });
+
+  it('sends the supplied user agent', async () => {
+    const { client, requests } = createFakeHttp([jsonResponse(200, { id: 'u1', email: 'dev@example.com' })]);
+    await new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test', userAgent: 'Plane-VSCode/9.9.9' }).currentUser();
+    expect(requests[0]?.headers['User-Agent']).toBe('Plane-VSCode/9.9.9');
   });
 
   it('falls back from issues to work-items on 404', async () => {
@@ -218,6 +224,12 @@ describe('PlaneClient', () => {
       code: 'HTTP_ERROR',
       message: 'Plane API timed out. Try Force reload.',
     });
+  });
+
+  it('warns that a timed-out write may still have been applied', async () => {
+    const { client } = createFakeHttp([jsonResponse(200, { results: [] }), { status: 408, headers: new Map(), setCookie: [], body: '' }]);
+    const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
+    await expect(plane.updateIssueState({ workspaceSlug: SLUG, projectId: PROJECT_ID, issueId: ISSUE_ID, stateId: 'state-2' })).rejects.toThrow(/may have been applied/);
   });
 
   it('lists cycles and treats missing cycle routes as empty', async () => {

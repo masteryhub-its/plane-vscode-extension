@@ -1,5 +1,6 @@
 import { FETCH_TIMEOUT_MS } from '../constants';
-import type { HttpClient, HttpMethod, HttpRequest, HttpResponse } from './http.types';
+import { HttpMethod } from '../utils/enums/http-method.enum';
+import type { HttpClient, HttpRequest, HttpResponse } from './http.types';
 
 function readSetCookie(headers: Headers): readonly string[] {
   if ('getSetCookie' in headers && typeof headers.getSetCookie === 'function') {
@@ -61,10 +62,17 @@ async function fetchOnce(request: HttpRequest): Promise<HttpResponse | undefined
   }
 }
 
+function isIdempotent(method: HttpMethod): boolean {
+  return method === HttpMethod.GET;
+}
+
 export const fetchHttpClient: HttpClient = async (request: HttpRequest): Promise<HttpResponse> => {
   const first = await fetchOnce(request);
   if (first !== undefined) {
     return first;
+  }
+  if (!isIdempotent(request.method)) {
+    return TIMEOUT_RESPONSE;
   }
   const retry = await fetchOnce(request);
   return retry ?? TIMEOUT_RESPONSE;
