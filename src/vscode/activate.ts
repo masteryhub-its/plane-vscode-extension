@@ -40,7 +40,7 @@ function extensionVersion(context: vscode.ExtensionContext): string | undefined 
 
 export function activatePlane(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel('Plane');
-  output.appendLine('Plane extension activated v1.0.0');
+  output.appendLine(`Plane extension activated v${extensionVersion(context) ?? 'unknown'}`);
 
   const settings = new VsCodeSettingsReader();
   const auth = new AuthService({

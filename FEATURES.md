@@ -1,4 +1,4 @@
-# Features — Plane by MasteryHub v1.0.0
+# Features — Plane by MasteryHub v1.0.1
 
 ## Connect
 
@@ -23,7 +23,8 @@
 ## Commands (palette)
 
 - Sign in, Search Plane Issues, Open Plane Issue, Create Plane Issue, Sync, Force Reload, Sign out, Open Plane Link or Issue Key, Convert Plane Intake Item
-- Change state of selected issues (multi-select in the Issues tree)
+- Change state of selected issues (multi-select in the Issues tree). Issues are grouped by project; the picked state is matched by name in each project, a confirmation is shown first, and the result lists any issue that failed
+- Export Plane PAT to an MCP env file: shows the exact lines and target path, asks for confirmation, writes with `0600` permissions (path from `plane.mcpEnvPath`)
 
 ## Tree context (hidden from palette)
 
@@ -34,9 +35,11 @@
 ## Issue preview
 
 - Title, key, state, priority, assignees, labels (color chips when the API sends hex), due date, updated time
-- Description prefers `description_html`; falls back to escaped plain text
+- Description prefers `description_html` (sanitized with an allowlist); falls back to escaped plain text
+- A failed load shows an error page with a **Retry** button; opening the same issue again focuses the existing panel
 - Sub-issues, relations (blocked-by / blocking / relates-to / duplicate), attachments, logged time
-- Comments newest-first with HTML escaped like description; post a comment; edit your own comments
+- Comments newest-first, sanitized with an allowlist; mentions show as `@name`, images as `[image]`, task items as checkboxes
+- Post a comment (blank lines start a paragraph); edit your own comment inline when it is plain text. Comments with formatting show "Edit in Plane to keep formatting" instead of an edit button, so nothing is flattened
 - **Open in Plane** opens the real web app in the system browser
 
 ## Create and update
@@ -45,6 +48,8 @@
 - Convert an intake item to a new issue (`Convert Plane Intake Item`); already-converted items open the existing issue
 - PATCH title, description, priority, labels, due date, state, assignee
 - Archive (confirm) and delete (strong confirm)
+- A write that times out is not retried; the message says the change may have been applied, so refresh before trying again
+- Issue lists stop at 5000 issues per project and say so in the status bar
 
 ## Link detection
 
@@ -56,7 +61,11 @@
 
 - `BoundPlaneCredential { serverUrl, token }` in Secret Storage
 - `plane.serverUrl` read from Global/default only (workspace overrides ignored)
-- HTTP fetch uses `redirect: 'manual'`; https required except loopback http
+- HTTP fetch uses `redirect: 'manual'`; https required except loopback http; only GET requests are retried after a timeout
+- `User-Agent` is `Plane-VSCode/<extension version>`
+- Webview HTML goes through an allowlist sanitizer, and the content security policy forbids `base` and form targets
+- The workspace slug must be a plain slug (letters, digits, `-`, `_`); anything else is ignored, so a cloned repository cannot inject lines into the MCP env file
+- 401, 403 (permission), 404 (check slug and server URL) and redirects each get a distinct message
 - `formatPlaneError` redacts `plane_api_` tokens, Bearer, cookies, passwords
 - Webview CSP: `img-src` same-origin (webview origin only); HTML escaped in sidebar and preview
 - Rate-limit (429) surfaces “try again in N seconds”

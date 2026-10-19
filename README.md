@@ -56,6 +56,7 @@ Uninstall any older sideload before installing a new `.vsix`.
 | `plane.defaultWorkspaceSlug` | empty (optional; last-visited workspace from the API is used when the list endpoint is missing) |
 | `plane.defaultProjectId` | empty (all projects) |
 | `plane.showAssignedBadge` | `false` |
+| `plane.mcpEnvPath` | empty (default `~/.config/masteryhub/mcp.env`). Absolute path or leading `~`. Used only by **Export Plane PAT to MCP env** after you confirm. User-level setting; workspace settings cannot change it |
 
 Use `https://app.plane.so` for Plane Cloud, or your self-hosted URL with no trailing slash. Create a PAT in Plane → Profile → Personal Access Tokens.
 

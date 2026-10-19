@@ -8,7 +8,7 @@ describe('package contributes', () => {
     expect(contributes.contributes.commands.some((command) => command.command === 'plane.archiveIssue')).toBe(true);
     expect(contributes.contributes.commands.some((command) => command.command === 'plane.convertIntake')).toBe(true);
     expect(contributes.name).toBe('plane');
-    expect(contributes.version).toBe('1.0.0');
+    expect(contributes.version).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/u);
     expect(contributes.publisher).toBe('MasteryHubITS');
   });
 });

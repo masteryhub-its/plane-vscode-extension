@@ -4,7 +4,7 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x | Yes |
+| 1.0.x | Yes |
 
 ## Reporting a vulnerability
 
@@ -23,7 +23,11 @@ We will respond within a reasonable timeframe.
 - Plane PATs are stored in VS Code **Secret Storage**, bound to `plane.serverUrl`.
 - PATs are sent only as `X-API-Key` to the configured Plane server over HTTPS (or loopback HTTP in dev).
 - Error messages redact `plane_api_*` tokens, Bearer headers, cookies, and passwords.
-- Webviews use strict CSP and HTML escaping; Plane is not embedded in an iframe.
+- Webviews use a strict CSP (`default-src 'none'`, nonce scripts, no `base`/form targets) and an allowlist HTML sanitizer; Plane is not embedded in an iframe.
+- Writes are never retried automatically after a timeout, so a slow server cannot create duplicates.
+- Exporting the token to an env file requires confirmation, shows the exact lines, validates every value is a single line, and writes with `0600` permissions.
+- `plane.serverUrl` and `plane.mcpEnvPath` are user-level settings; workspace settings cannot redirect your token.
+- Runtime dependencies are audited in CI (`npm audit --omit=dev`).
 
 ## If a token is exposed
 

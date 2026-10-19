@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.1 — 2026-10-19
+
+Security and reliability fixes from a full audit. No new screens or commands.
+
+- Allowlist HTML sanitizer for issue and comment HTML (replaces a regex filter); content security policy now forbids `base` and form targets
+- Mentions, images and task items from Plane's editor stay visible instead of vanishing
+- Timed-out writes are no longer retried; the error says the change may have been applied
+- Export to MCP env: confirmation with exact lines, single-line validation, `0600` permissions, `$` sequences in tokens written literally, path setting `plane.mcpEnvPath`
+- A workspace slug from settings must be a plain slug; unsafe values are ignored
+- Comment edit works inline for plain-text comments and is withheld for formatted ones (no silent flattening)
+- Bulk state change groups by project, asks for confirmation and reports per-issue results
+- Honest `Plane-VSCode/<version>` user agent
+- Distinct messages for 403, 404 and redirects; 5000-issue limit is announced
+- Faster issue open: shared project list, shared endpoint probe, parallel panel requests
+- Failed issue load shows a Retry page; the same issue opens one panel
+- Server URL is a user-level setting; the stored token is no longer cleared by a settings change
+- Untrusted and virtual workspaces declared unsupported
+- Release workflow checks the tag matches the version; runtime dependency audit runs in CI
+
 ## 1.0.0 — 2026-09-09
 
 Public store release: marketplace metadata, screenshots, and GitHub Release publish.

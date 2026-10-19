@@ -3,7 +3,7 @@
 Product plan for the VS Code / Cursor client. **Shipped behavior** is in [FEATURES.md](./FEATURES.md). This file is the forward-looking catalog: phases, priorities, and permanent non-goals.
 
 **Extension id:** `MasteryHubITS.plane`  
-**Current release:** v1.0.0  
+**Current release:** v1.0.1  
 **Default server:** Plane Cloud (`https://app.plane.so`); set `plane.serverUrl` for self-hosted  
 **Stack:** REST `/api/v1` with `X-API-Key` (PAT) — no WebSocket in v1.x
 
