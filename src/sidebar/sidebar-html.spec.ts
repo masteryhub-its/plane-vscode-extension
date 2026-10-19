@@ -137,4 +137,15 @@ describe('renderSidebarHtml', () => {
     expect(html).toContain('Loading Plane');
     expect(html).toContain('https://plane.example.test');
   });
+
+  it('forbids base and form targets in the content security policy', () => {
+    const html = renderSidebarHtml({
+      state: { status: SidebarStatus.SIGNED_OUT, serverUrl: 'https://plane.test', error: undefined, busy: false },
+      nonce: 'abc123',
+      cspSource: 'vscode-webview://test',
+    });
+    expect(html).toContain("base-uri 'none'");
+    expect(html).toContain("form-action 'none'");
+    expect(html).toContain("script-src 'nonce-abc123'");
+  });
 });

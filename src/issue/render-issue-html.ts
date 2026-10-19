@@ -2,6 +2,7 @@ import { escapeHtml } from '../sidebar/escape-html';
 import type { PlaneAttachment, PlaneIssue, PlaneIssueRelation, PlaneLabel, PlaneWorklog } from '../client/plane.types';
 import { formatIssueKey } from './issue-key';
 import { resolveIssueDescriptionHtml } from './description-html';
+import { commentHtmlToText, isPlainEditableComment } from './comment-text';
 import { sanitizeIssueHtml } from './sanitize-html';
 import { safeLabelColor } from './label-chip';
 import type { PlaneComment } from './parse-comments';
@@ -38,7 +39,12 @@ export function renderIssuePreviewHtml(input: RenderIssueHtmlInput): string {
       : comments
           .map((comment) => {
             const own = comment.authorId.length > 0 && comment.authorId === currentUserId;
-            const edit = own ? `<button type="button" class="comment-edit" data-comment="${escapeHtml(comment.id)}">Edit</button>` : '';
+            const editable = own && isPlainEditableComment(comment.html);
+            const edit = editable
+              ? `<button type="button" class="comment-edit" data-comment="${escapeHtml(comment.id)}" data-text="${escapeHtml(commentHtmlToText(comment.html))}">Edit</button>`
+              : own
+                ? '<span class="muted" title="This comment has formatting that the editor here would remove.">Edit in Plane to keep formatting</span>'
+                : '';
             return `<article class="comment"><p class="comment-meta">${escapeHtml(comment.authorName)} · ${escapeHtml(comment.createdAt)} ${edit}</p><div class="comment-body">${sanitizeIssueHtml(comment.html)}</div></article>`;
           })
           .join('');
@@ -58,7 +64,7 @@ export function renderIssuePreviewHtml(input: RenderIssueHtmlInput): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource}; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource}; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none';" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(key)}</title>
   <style>${ISSUE_CSS}</style>
@@ -117,9 +123,35 @@ export function renderIssuePreviewHtml(input: RenderIssueHtmlInput): string {
     });
     document.querySelectorAll('.comment-edit').forEach((button) => {
       button.addEventListener('click', () => {
-        const next = window.prompt('Edit comment HTML');
-        if (next === null) return;
-        vscode.postMessage({ type: '${IssuePanelMessageType.EDIT_COMMENT}', commentId: button.getAttribute('data-comment'), html: next });
+        const article = button.closest('article');
+        const body = article ? article.querySelector('.comment-body') : null;
+        if (!article || !body || article.querySelector('.comment-editor')) return;
+        const editor = document.createElement('div');
+        editor.className = 'comment-editor';
+        const textarea = document.createElement('textarea');
+        textarea.rows = 4;
+        textarea.value = button.getAttribute('data-text') || '';
+        const actions = document.createElement('div');
+        actions.className = 'comment-editor-actions';
+        const save = document.createElement('button');
+        save.type = 'button';
+        save.textContent = 'Save';
+        save.addEventListener('click', () => {
+          vscode.postMessage({ type: '${IssuePanelMessageType.EDIT_COMMENT}', commentId: button.getAttribute('data-comment'), html: textarea.value });
+        });
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Cancel';
+        cancel.className = 'comment-edit';
+        cancel.addEventListener('click', () => {
+          editor.remove();
+          body.hidden = false;
+        });
+        actions.append(save, cancel);
+        editor.append(textarea, actions);
+        body.after(editor);
+        body.hidden = true;
+        textarea.focus();
       });
     });
   </script>
@@ -172,5 +204,12 @@ const ISSUE_CSS = `
   .comment { border-top: 1px solid var(--vscode-widget-border, transparent); padding: 8px 0; }
   .comment-meta { font-size: 12px; color: var(--vscode-descriptionForeground); }
   textarea { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); }
+  .comment-editor-actions { display: flex; gap: 8px; }
+  .mention { color: var(--vscode-textLink-foreground); background: var(--vscode-badge-background); border-radius: 4px; padding: 0 4px; }
+  .image-placeholder { color: var(--vscode-descriptionForeground); font-style: italic; }
+  li.task-done, li.task-open { list-style: none; margin-left: -18px; }
+  li.task-done::before { content: '\\2611  '; }
+  li.task-open::before { content: '\\2610  '; }
+  li.task-done { color: var(--vscode-descriptionForeground); text-decoration: line-through; }
   ul { padding-left: 18px; }
 `;

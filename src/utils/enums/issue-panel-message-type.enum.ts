@@ -4,4 +4,5 @@ export enum IssuePanelMessageType {
   OPEN_ATTACHMENT = 'openAttachment',
   ADD_COMMENT = 'addComment',
   EDIT_COMMENT = 'editComment',
+  RETRY = 'retry',
 }
