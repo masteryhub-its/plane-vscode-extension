@@ -68,4 +68,47 @@ describe('tree-model nodes', () => {
     const node = { kind: PlaneTreeKind.ISSUE, workspaceSlug: 'acme', projectId: 'p', issueId: 'i', label: 'MH-1 x' };
     expect(parseIssueNodes([node, { kind: PlaneTreeKind.PROJECT }, null, 'x', { kind: PlaneTreeKind.ISSUE, workspaceSlug: 1 }])).toEqual([node]);
   });
+
+  it('carries what the tree needs to draw an issue row', () => {
+    const base: PlaneIssue = {
+      id: 'issue-1',
+      name: 'Fix bug',
+      descriptionHtml: '',
+      descriptionPlain: '',
+      sequenceId: 7,
+      projectId: 'proj-1',
+      workspaceSlug: 'acme',
+      projectIdentifier: 'MH',
+      stateId: 'state-1',
+      stateName: 'Todo',
+      priority: 'high',
+      assigneeIds: [],
+      assigneeNames: [],
+      createdAt: '',
+      updatedAt: '',
+      targetDate: undefined,
+      createdById: undefined,
+      parentId: undefined,
+      labelIds: [],
+      labelNames: [],
+    };
+    const node = toIssueNode({
+      ...base,
+      stateGroup: 'started',
+      priority: 'urgent',
+      targetDate: '2026-09-25',
+      assigneeNames: ['Ada'],
+    });
+    expect(node.presentable).toEqual({
+      id: 'issue-1',
+      name: 'Fix bug',
+      projectIdentifier: 'MH',
+      sequenceId: 7,
+      stateName: 'Todo',
+      stateGroup: 'started',
+      priority: 'urgent',
+      targetDate: '2026-09-25',
+      assigneeNames: ['Ada'],
+    });
+  });
 });

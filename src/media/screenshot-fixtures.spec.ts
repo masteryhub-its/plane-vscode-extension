@@ -23,7 +23,7 @@ describe('marketplace screenshot fixtures', () => {
     const html = renderIssuePreviewHtml(previewIssueHtmlInput());
     expect(html).toContain('ENG-12');
     expect(html).toContain('Fix login timeout');
-    expect(html).toContain('Comments');
+    expect(html).toContain('Activity');
     expect(html).toContain('spec.pdf');
   });
 

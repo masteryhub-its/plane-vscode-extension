@@ -1,6 +1,6 @@
 import { DEFAULT_SERVER_URL } from '../constants';
 import { PlaneError } from '../errors/plane-error';
-import { normalizeServerUrl, normalizeSettings, preferredServerUrlRaw } from './settings';
+import { normalizeServerUrl, normalizeSettings, preferredServerUrlRaw, validateServerUrlInput } from './settings';
 
 describe('settings', () => {
   it('prefers global server URL over workspace values', () => {
@@ -36,5 +36,22 @@ describe('settings', () => {
 
   it.each(['acme', 'Acme-Team', 'team_1', 'a1'])('keeps a valid workspace slug: %s', (slug) => {
     expect(normalizeSettings({ serverUrl: DEFAULT_SERVER_URL, defaultWorkspaceSlug: slug, defaultProjectId: '', showAssignedBadge: false }).defaultWorkspaceSlug).toBe(slug);
+  });
+
+  describe('validateServerUrlInput', () => {
+    it('accepts an https URL and loopback http', () => {
+      expect(validateServerUrlInput('https://plane.example.com')).toBeUndefined();
+      expect(validateServerUrlInput('http://localhost:8080')).toBeUndefined();
+    });
+
+    it.each([
+      ['', 'required'],
+      ['plane.example.com', 'invalid'],
+      ['http://plane.example.com', 'https'],
+      ['https://user:pass@plane.example.com', 'credentials'],
+      ['ftp://plane.example.com', 'http or https'],
+    ])('explains why %j is rejected', (value, fragment) => {
+      expect(validateServerUrlInput(value)).toContain(fragment);
+    });
   });
 });

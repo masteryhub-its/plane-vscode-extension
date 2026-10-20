@@ -13,6 +13,8 @@ import {
   deleteIssueCommand,
   openIssueCommand,
   registerPlaneCommands,
+  setServerUrlCommand,
+  signInCommand,
   subscribeIssueCommand,
   updateIssueAssigneeCommand,
   updateIssueDescriptionCommand,
@@ -25,6 +27,7 @@ import {
   type PlaneCommandContext,
 } from './commands';
 import { PlaneHoverProvider } from './hover-provider';
+import { PlaneIssueDecorationProvider } from './issue-decorations';
 import { openPlaneIssuePanel } from './issue-panel';
 import { showPlaneError, showPlaneInfo } from './messages';
 import { VsCodeSecretStore } from './secret-store';
@@ -96,14 +99,17 @@ export function activatePlane(context: vscode.ExtensionContext): void {
 
   const commandCtx: PlaneCommandContext = { auth, settings, tree, statusBar, openPreview, globalState: context.globalState };
 
-  const runCommand = (action: () => Promise<void>): void => {
-    void action().catch((error: unknown) => {
+  const runCommandAndWait = (action: () => Promise<void>): Promise<void> =>
+    action().catch((error: unknown) => {
       if (isNotSignedInError(error)) {
-        sidebar.openSignInUi();
+        void vscode.commands.executeCommand('plane.openSignIn');
         return;
       }
       showPlaneError(error);
     });
+
+  const runCommand = (action: () => Promise<void>): void => {
+    void runCommandAndWait(action);
   };
 
   context.subscriptions.push(
@@ -114,8 +120,20 @@ export function activatePlane(context: vscode.ExtensionContext): void {
       webviewOptions: { retainContextWhenHidden: true },
     }),
     vscode.languages.registerHoverProvider({ scheme: 'file' }, new PlaneHoverProvider({ titles: () => issueCache.hoverTitles() })),
+    vscode.window.registerFileDecorationProvider(new PlaneIssueDecorationProvider()),
     vscode.commands.registerCommand('plane.openSignIn', () => {
-      sidebar.openSignInUi();
+      if (vscode.workspace.getConfiguration('plane').get<boolean>('ui.legacySidebar') === true) {
+        sidebar.openSignInUi();
+        return;
+      }
+      runCommand(async () => {
+        await signInCommand(commandCtx);
+      });
+    }),
+    vscode.commands.registerCommand('plane.setServerUrl', () => {
+      runCommand(async () => {
+        await setServerUrlCommand(commandCtx);
+      });
     }),
     vscode.commands.registerCommand('plane.refresh', () => {
       issueCache.invalidate();
@@ -134,16 +152,9 @@ export function activatePlane(context: vscode.ExtensionContext): void {
         await openIssueCommand(commandCtx, node);
       });
     }),
-    vscode.commands.registerCommand('plane.updateIssueState', (node: unknown) => {
-      runCommand(async () => {
-        await updateIssueStateCommand(commandCtx, node);
-      });
-    }),
-    vscode.commands.registerCommand('plane.updateIssueAssignee', (node: unknown) => {
-      runCommand(async () => {
-        await updateIssueAssigneeCommand(commandCtx, node);
-      });
-    }),
+    // These two return their promise so the issue panel can refresh once the change has been made.
+    vscode.commands.registerCommand('plane.updateIssueState', (node: unknown) => runCommandAndWait(() => updateIssueStateCommand(commandCtx, node))),
+    vscode.commands.registerCommand('plane.updateIssueAssignee', (node: unknown) => runCommandAndWait(() => updateIssueAssigneeCommand(commandCtx, node))),
     vscode.commands.registerCommand('plane.updateIssuePriority', (node: unknown) => {
       runCommand(async () => {
         await updateIssuePriorityCommand(commandCtx, node);

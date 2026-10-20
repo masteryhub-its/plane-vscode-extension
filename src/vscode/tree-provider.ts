@@ -7,7 +7,6 @@ import {
   groupIssuesByState,
   MY_ISSUES_TREE_NODE,
   parseIssueNode,
-  SIGN_IN_TREE_NODE,
   toCycleNode,
   toIssueNode,
   toModuleNode,
@@ -18,10 +17,36 @@ import {
   type PlaneTreeNode,
 } from '../tree/tree-model';
 import { sortStatesByGroup } from '../tree/state-group-order';
+import { escapeMarkdown } from '../utils/markdown-escape';
+import { buildIssueDecorationUri } from '../tree/issue-decoration';
+import { presentIssue, type IssueIconSpec, type PresentableIssue } from '../tree/issue-presentation';
 import { PlaneTreeKind } from '../utils/enums/plane-tree-kind.enum';
 import { showPlaneError } from './messages';
 
 export const PLANE_TREE_VIEW_ID = 'planeExplorer';
+
+function toThemeIcon(spec: IssueIconSpec): vscode.ThemeIcon {
+  return new vscode.ThemeIcon(spec.id, spec.color === undefined ? undefined : new vscode.ThemeColor(spec.color));
+}
+
+function presentableFor(node: PlaneTreeIssueNode): PresentableIssue {
+  return (
+    node.presentable ?? {
+      id: node.issueId,
+      name: node.label,
+      projectIdentifier: node.projectIdentifier,
+      sequenceId: node.sequenceId,
+      stateName: node.stateName,
+      priority: '',
+      targetDate: undefined,
+      assigneeNames: [],
+    }
+  );
+}
+
+function setSignedIn(signedIn: boolean): void {
+  void vscode.commands.executeCommand('setContext', 'plane.signedIn', signedIn);
+}
 
 export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode> {
   private readonly emitter = new vscode.EventEmitter<PlaneTreeNode | undefined>();
@@ -107,9 +132,13 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
       return item;
     }
 
-    const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+    const view = presentIssue(presentableFor(element), new Date());
+    const item = new vscode.TreeItem(view.label, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'planeIssue';
-    item.iconPath = new vscode.ThemeIcon('issue-opened');
+    item.description = view.description;
+    item.iconPath = toThemeIcon(view.icon);
+    item.resourceUri = vscode.Uri.from(buildIssueDecorationUri(element.id, view));
+    item.tooltip = new vscode.MarkdownString(view.tooltip.map(escapeMarkdown).join('\n\n'));
     item.id = element.id;
     item.command = {
       command: 'plane.openIssue',
@@ -124,6 +153,7 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
       if (element === undefined) {
         const client = await this.auth.requireClient();
         const workspaces = await client.listWorkspaces();
+        setSignedIn(true);
         return [MY_ISSUES_TREE_NODE, ...workspaces.map(toWorkspaceNode)];
       }
 
@@ -178,7 +208,9 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
       return [];
     } catch (error: unknown) {
       if (element === undefined && isNotSignedInError(error)) {
-        return [SIGN_IN_TREE_NODE];
+        // An empty tree lets the signed-out welcome view show.
+        setSignedIn(false);
+        return [];
       }
       if (element === undefined) {
         showPlaneError(error);

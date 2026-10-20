@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import type { AuthService } from '../auth/auth-service';
 import type { PlaneClient } from '../client/plane-client';
 import type { PlaneMember, PlaneProject, PlaneState, PlaneTemplate, PlaneWorkspace } from '../client/plane.types';
-import type { SettingsReader } from '../config/settings.types';
+import { normalizeServerUrl, validateServerUrlInput } from '../config/settings';
+import type { SettingsStore } from '../config/settings.types';
 import { isNotSignedInError } from '../errors/plane-error';
 import { detectIssueKeys, detectPlaneUrls } from '../issue/detect-links';
 import { resolveSearchWorkspaces } from '../search/resolve-workspaces';
@@ -31,7 +32,7 @@ export interface OpenIssuePreviewInput {
 
 export interface PlaneCommandContext {
   readonly auth: AuthService;
-  readonly settings: SettingsReader;
+  readonly settings: SettingsStore;
   readonly tree: PlaneTreeProvider;
   readonly statusBar: PlaneStatusBar;
   readonly openPreview: (input: OpenIssuePreviewInput) => Promise<void>;
@@ -96,6 +97,28 @@ export async function signInCommand(ctx: PlaneCommandContext): Promise<void> {
   }
   const user = await ctx.auth.signInWithPat({ token });
   showPlaneInfo(`Signed in as ${user.displayName}`);
+  await refreshUi(ctx);
+}
+
+export async function setServerUrlCommand(ctx: PlaneCommandContext): Promise<void> {
+  const current = ctx.settings.read().serverUrl;
+  const raw = await vscode.window.showInputBox({
+    title: 'Plane server URL',
+    prompt: 'Use https://app.plane.so for Plane Cloud, or the address of your own Plane server. Changing the server signs you out.',
+    value: current,
+    ignoreFocusOut: true,
+    validateInput: validateServerUrlInput,
+  });
+  if (raw === undefined) {
+    return;
+  }
+  const next = normalizeServerUrl(raw);
+  if (next === current) {
+    return;
+  }
+  await ctx.auth.clearCredential();
+  await ctx.settings.writeServerUrl(next);
+  showPlaneInfo(`Plane server set to ${next}. Sign in to continue.`);
   await refreshUi(ctx);
 }
 

@@ -2,11 +2,15 @@ import { randomBytes } from 'crypto';
 import * as vscode from 'vscode';
 import type { PlaneClient } from '../client/plane-client';
 import { buildIssueUrl } from '../client/issue-url';
+import type { PlaneIssue } from '../client/plane.types';
 import { renderIssuePreviewHtml } from '../issue/render-issue-html';
 import { issuePanelId } from '../issue/issue-panel-id';
 import { plainTextToCommentHtml } from '../issue/comment-text';
 import { formatIssueKey } from '../issue/issue-key';
+import { copyActionFor } from '../issue/copy-actions';
+import { renderIssueLoadingHtml } from '../issue/render-issue-loading-html';
 import { renderPanelErrorHtml } from '../issue/render-panel-error-html';
+import { toIssueNode } from '../tree/tree-model';
 import { IssuePanelMessageType } from '../utils/enums/issue-panel-message-type.enum';
 import { showPlaneError, showPlaneInfo } from './messages';
 import { openPlaneUrl } from './open-url';
@@ -38,6 +42,8 @@ export async function openPlaneIssuePanel(input: OpenIssuePanelInput): Promise<v
   });
   openPanels.set(panelKey, panel);
   panel.iconPath = new vscode.ThemeIcon('issue-opened');
+  panel.webview.html = renderIssueLoadingHtml({ title: input.title, nonce, cspSource: panel.webview.cspSource });
+  const shown: ShownIssue = { issue: undefined, planeUrl: '' };
 
   const render = async (): Promise<void> => {
     const issue = await input.client.getIssue(input.workspaceSlug, input.projectId, input.issueId);
@@ -50,6 +56,8 @@ export async function openPlaneIssuePanel(input: OpenIssuePanelInput): Promise<v
       input.client.listLabels(input.workspaceSlug, input.projectId).catch(() => []),
     ]);
     const planeUrl = buildIssueUrl(input.serverUrl, issue);
+    shown.issue = issue;
+    shown.planeUrl = planeUrl;
     panel.title = formatIssueKey(issue.projectIdentifier, issue.sequenceId, issue.id);
     panel.webview.html = renderIssuePreviewHtml({
       issue,
@@ -82,7 +90,7 @@ export async function openPlaneIssuePanel(input: OpenIssuePanelInput): Promise<v
 
   await renderOrError();
   panel.webview.onDidReceiveMessage((message: unknown) => {
-    void handleIssuePanelMessage(input, message, renderOrError);
+    void handleIssuePanelMessage(input, message, renderOrError, shown);
   });
   panel.onDidDispose(() => {
     openPanels.delete(panelKey);
@@ -99,7 +107,12 @@ interface IssuePanelMessageRecord {
   readonly issueId?: unknown;
 }
 
-async function handleIssuePanelMessage(input: OpenIssuePanelInput, message: unknown, render: () => Promise<void>): Promise<void> {
+interface ShownIssue {
+  issue: PlaneIssue | undefined;
+  planeUrl: string;
+}
+
+async function handleIssuePanelMessage(input: OpenIssuePanelInput, message: unknown, render: () => Promise<void>, shown: ShownIssue): Promise<void> {
   if (typeof message !== 'object' || message === null) {
     return;
   }
@@ -108,6 +121,20 @@ async function handleIssuePanelMessage(input: OpenIssuePanelInput, message: unkn
     if (record.type === IssuePanelMessageType.RETRY) {
       await render();
       return;
+    }
+    if (shown.issue !== undefined) {
+      const copy = copyActionFor(record.type, shown.issue, shown.planeUrl);
+      if (copy !== undefined) {
+        await vscode.env.clipboard.writeText(copy.text);
+        showPlaneInfo(copy.confirmation);
+        return;
+      }
+      if (record.type === IssuePanelMessageType.CHANGE_STATE || record.type === IssuePanelMessageType.CHANGE_ASSIGNEE) {
+        const command = record.type === IssuePanelMessageType.CHANGE_STATE ? 'plane.updateIssueState' : 'plane.updateIssueAssignee';
+        await vscode.commands.executeCommand(command, toIssueNode(shown.issue));
+        await render();
+        return;
+      }
     }
     if (record.type === IssuePanelMessageType.OPEN_IN_PLANE || record.type === IssuePanelMessageType.OPEN_ATTACHMENT) {
       if (typeof record.url === 'string' && record.url.length > 0) {

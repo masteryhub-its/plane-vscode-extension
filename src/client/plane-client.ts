@@ -255,6 +255,7 @@ function parseIssue(raw: unknown, workspaceSlug: string, project: PlaneProject):
   const stateRaw = raw['state_detail'];
   const stateIdFromDetail = isRecord(stateRaw) ? readString(stateRaw['id']) : '';
   const stateNameFromDetail = isRecord(stateRaw) ? readString(stateRaw['name']) : '';
+  const stateGroupFromDetail = isRecord(stateRaw) ? readString(stateRaw['group']) : '';
   const assignees = parseAssignees(raw['assignees']);
   const identifierRaw = readString(raw['project_identifier']);
   return {
@@ -268,6 +269,7 @@ function parseIssue(raw: unknown, workspaceSlug: string, project: PlaneProject):
     projectIdentifier: identifierRaw.length > 0 ? identifierRaw : project.identifier,
     stateId: readString(raw['state']) || stateIdFromDetail,
     stateName: stateNameFromDetail,
+    ...(stateGroupFromDetail.length > 0 ? { stateGroup: stateGroupFromDetail } : {}),
     priority: readString(raw['priority']),
     assigneeIds: assignees.map((item) => item.id),
     assigneeNames: assignees.map((item) => item.name),

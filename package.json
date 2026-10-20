@@ -79,6 +79,11 @@
           "type": "boolean",
           "default": false,
           "description": "Show a badge on the Issues view with the count of issues assigned to you."
+        },
+        "plane.ui.legacySidebar": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show the previous webview panel (account, server and filter cards) above the Issues tree. Off by default: the Issues tree now has the sign-in, search and server actions in its title bar."
         }
       }
     },
@@ -195,6 +200,11 @@
       {
         "command": "plane.exportPatToMcpEnv",
         "title": "Export Plane PAT to MasteryHub mcp.env"
+      },
+      {
+        "command": "plane.setServerUrl",
+        "title": "Set Plane Server URL",
+        "icon": "$(server)"
       }
     ],
     "menus": {
@@ -251,28 +261,63 @@
       "view/title": [
         {
           "command": "plane.search",
-          "when": "view == planePanel || view == planeExplorer",
+          "when": "view == planePanel",
           "group": "navigation@0"
         },
         {
           "command": "plane.createIssue",
-          "when": "view == planePanel || view == planeExplorer",
+          "when": "view == planePanel",
           "group": "navigation@1"
         },
         {
           "command": "plane.forceReload",
-          "when": "view == planePanel || view == planeExplorer",
+          "when": "view == planePanel",
           "group": "navigation@2"
         },
         {
           "command": "plane.refresh",
-          "when": "view == planePanel || view == planeExplorer",
+          "when": "view == planePanel",
           "group": "navigation@3"
         },
         {
           "command": "plane.signOut",
-          "when": "(view == planePanel || view == planeExplorer) && plane.signedIn",
+          "when": "(view == planePanel) && plane.signedIn",
           "group": "navigation@4"
+        },
+        {
+          "command": "plane.search",
+          "when": "view == planeExplorer",
+          "group": "navigation@0"
+        },
+        {
+          "command": "plane.createIssue",
+          "when": "view == planeExplorer && plane.signedIn",
+          "group": "navigation@1"
+        },
+        {
+          "command": "plane.refresh",
+          "when": "view == planeExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "plane.forceReload",
+          "when": "view == planeExplorer",
+          "group": "1_more@1"
+        },
+        {
+          "command": "plane.setServerUrl",
+          "when": "view == planeExplorer",
+          "group": "1_more@2"
+        },
+        {
+          "command": "plane.exportPatToMcpEnv",
+          "when": "view == planeExplorer && plane.signedIn",
+          "group": "1_more@3"
+        },
+        {
+          "command": "plane.signOut",
+          "when": "view == planeExplorer && plane.signedIn",
+          "group": "1_more@4"
         }
       ],
       "view/item/context": [
@@ -349,7 +394,8 @@
           "type": "webview",
           "id": "planePanel",
           "name": "Plane",
-          "visibility": "visible"
+          "visibility": "visible",
+          "when": "config.plane.ui.legacySidebar"
         },
         {
           "id": "planeExplorer",
@@ -357,7 +403,14 @@
           "visibility": "visible"
         }
       ]
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "planeExplorer",
+        "contents": "Sign in to see your Plane issues beside your code.\n[Sign in with a token](command:plane.openSignIn)\n[Choose server](command:plane.setServerUrl)\nYour token stays in the editor's secret storage and is only sent to the server you choose.",
+        "when": "!plane.signedIn"
+      }
+    ]
   },
   "scripts": {
     "compile": "rm -rf dist && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",

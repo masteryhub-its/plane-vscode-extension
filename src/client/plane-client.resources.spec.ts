@@ -183,4 +183,12 @@ describe('PlaneClient resources', () => {
     const http: HttpClient = () => Promise.resolve({ status: 429, headers: new Map([['retry-after', '30']]), setCookie: [], body: '' });
     await expect(new PlaneClient({ serverUrl: SERVER, http, token: 't' }).currentUser()).rejects.toThrow('30 seconds');
   });
+
+  it('reads the state group from the issue so the tree can pick an icon', async () => {
+    const withGroup = { ...ISSUE, state_detail: { id: 's1', name: 'In Progress', group: 'started' } };
+    const { plane } = client({ [`GET /workspaces/${W}/projects/${P}/issues/${I}/`]: withGroup });
+    expect((await plane.getIssue(W, P, I)).stateGroup).toBe('started');
+    const without = client({ [`GET /workspaces/${W}/projects/${P}/issues/${I}/`]: ISSUE });
+    expect((await without.plane.getIssue(W, P, I)).stateGroup).toBeUndefined();
+  });
 });

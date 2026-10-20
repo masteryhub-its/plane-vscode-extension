@@ -1,6 +1,7 @@
 import type { PlaneCycle, PlaneIssue, PlaneModule, PlaneProject, PlaneWorkspace } from '../client/plane.types';
 import { formatIssueKey } from '../issue/issue-key';
 import { PlaneTreeKind } from '../utils/enums/plane-tree-kind.enum';
+import type { PresentableIssue } from './issue-presentation';
 
 export interface PlaneTreeActionNode {
   readonly kind: PlaneTreeKind.ACTION;
@@ -41,6 +42,8 @@ export interface PlaneTreeIssueNode {
   readonly sequenceId: number;
   readonly projectIdentifier: string;
   readonly stateName: string;
+  /** What the tree needs to draw the row. Absent on nodes built before it existed; the row then falls back to the label. */
+  readonly presentable?: PresentableIssue;
 }
 
 export interface PlaneTreeMyIssuesNode {
@@ -140,6 +143,17 @@ export function toIssueNode(issue: PlaneIssue): PlaneTreeIssueNode {
     sequenceId: issue.sequenceId,
     projectIdentifier: issue.projectIdentifier,
     stateName: issue.stateName,
+    presentable: {
+      id: issue.id,
+      name: issue.name,
+      projectIdentifier: issue.projectIdentifier,
+      sequenceId: issue.sequenceId,
+      stateName: issue.stateName,
+      stateGroup: issue.stateGroup,
+      priority: issue.priority,
+      targetDate: issue.targetDate,
+      assigneeNames: issue.assigneeNames,
+    },
   };
 }
 

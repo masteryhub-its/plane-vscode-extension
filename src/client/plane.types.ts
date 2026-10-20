@@ -55,6 +55,8 @@ export interface PlaneIssue {
   readonly projectIdentifier: string;
   readonly stateId: string;
   readonly stateName: string;
+  /** The state's group (backlog, unstarted, started, completed, cancelled) when the API sends it. */
+  readonly stateGroup?: string;
   readonly priority: string;
   readonly assigneeIds: readonly string[];
   readonly assigneeNames: readonly string[];
