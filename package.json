@@ -2,7 +2,7 @@
   "name": "plane",
   "displayName": "Plane by MasteryHub",
   "description": "MasteryHub ITS client for Plane — browse, preview, search, and manage issues from self-hosted or Cloud Plane inside VS Code and Cursor.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "publisher": "MasteryHubITS",
   "license": "MIT",
   "author": "MasteryHub ITS",

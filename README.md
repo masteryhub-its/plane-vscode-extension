@@ -23,7 +23,7 @@ The sibling [AFFiNE VS Code client](https://github.com/masteryhub-its/affine-vsc
 ## Features
 
 - Sign in with a Plane personal access token (PAT via `X-API-Key`), stored in Secret Storage bound to `plane.serverUrl`
-- Sidebar webview plus **Issues** tree: my issues, workspace → project → state/cycle/module → issues
+- **Issues** tree with a state icon, key, due date and priority badge on every row; overdue and urgent issues are coloured. A welcome view handles sign-in and the server choice
 - Issue preview with sanitized HTML, comments (read/write), sub-issues, attachments, relations
 - **Open in Plane** via system browser (`openExternal`, no iframe)
 - Search, create, change state/assignee/priority/labels/title/description/due date

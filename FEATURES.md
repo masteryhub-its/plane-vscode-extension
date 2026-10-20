@@ -7,6 +7,14 @@
 - Status bar shows signed-in display name or sign-in prompt
 - VS Code and Cursor 1.90+
 
+## Issues tree (what you see first)
+
+- Each issue row shows a state icon (by state group), the title, the key, and the due date ("due Sep 25" or "overdue Sep 12"), with a priority badge (`!!`, `H`, `M`, `L`). Overdue issues are coloured as warnings and urgent ones as errors; the meaning is always in the text as well as the colour
+- Title-bar icons: search, create issue, sync. The **...** menu holds Force reload, Set server URL, Export PAT and Sign out
+- Signed out, the view shows a welcome with **Sign in with a token** and **Choose server**
+- The previous webview panel (account, server and filter cards) is hidden; turn on `plane.ui.legacySidebar` to bring it back
+- Every colour comes from the editor theme, so Dark, Light and High Contrast themes work; high contrast adds borders
+
 ## Sidebar and Issues tree
 
 - Activity-bar Plane webview plus **Issues** tree

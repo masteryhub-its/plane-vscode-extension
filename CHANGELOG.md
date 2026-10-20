@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 — Unreleased
+
+Redesigned interface. Everything from 1.0.1 is included.
+
+- Issues tree: state icon, title, key, due date and priority badge on each row; overdue and urgent issues are coloured
+- Welcome view for signing in and choosing a server; the always-visible account, server and filter cards are gone (`plane.ui.legacySidebar` restores them)
+- Title bar trimmed to search, create and sync; the rest is under the **...** menu, including a new **Set Plane Server URL** command
+- Issue preview rebuilt: breadcrumb, key and title, an action toolbar (open, change state, assign, copy link, copy key, copy branch name), a properties panel, sub-issue progress, an activity timeline and a comment composer (Ctrl+Enter sends)
+- Loading skeleton instead of a blank panel; a Retry page on failure
+- One theme stylesheet built only from editor theme colours, with high contrast support
+
 ## 1.0.1 — 2026-10-19
 
 Security and reliability fixes from a full audit. No new screens or commands.
