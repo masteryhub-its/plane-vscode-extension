@@ -10,6 +10,7 @@ Redesigned interface. Everything from 1.0.1 is included.
 - Issue preview rebuilt: breadcrumb, key and title, an action toolbar (open, change state, assign, copy link, copy key, copy branch name), a properties panel, sub-issue progress, an activity timeline and a comment composer (Ctrl+Enter sends)
 - Loading skeleton instead of a blank panel; a Retry page on failure
 - One theme stylesheet built only from editor theme colours, with high contrast support
+- Requests to Plane are retried (up to three attempts) when the connection itself fails, which makes a flaky network far more reliable; a write is only repeated when the connection never opened, so nothing is applied twice
 
 ## 1.0.1 — 2026-10-19
 
