@@ -1,5 +1,6 @@
 export enum PlaneTreeKind {
   ACTION = 'action',
+  ERROR = 'error',
   WORKSPACE = 'workspace',
   PROJECT = 'project',
   STATE = 'state',

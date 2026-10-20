@@ -8,6 +8,7 @@ import {
   MY_ISSUES_TREE_NODE,
   parseIssueNode,
   toCycleNode,
+  toErrorNode,
   toIssueNode,
   toModuleNode,
   toProjectNode,
@@ -21,7 +22,7 @@ import { escapeMarkdown } from '../utils/markdown-escape';
 import { buildIssueDecorationUri } from '../tree/issue-decoration';
 import { presentIssue, type IssueIconSpec, type PresentableIssue } from '../tree/issue-presentation';
 import { PlaneTreeKind } from '../utils/enums/plane-tree-kind.enum';
-import { showPlaneError } from './messages';
+import { formatPlaneError } from '../errors/format-error';
 
 export const PLANE_TREE_VIEW_ID = 'planeExplorer';
 
@@ -80,6 +81,16 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
       item.contextValue = 'planeSignIn';
       item.iconPath = new vscode.ThemeIcon('key');
       item.command = { command: 'plane.openSignIn', title: 'Sign in to Plane' };
+      return item;
+    }
+
+    if (element.kind === PlaneTreeKind.ERROR) {
+      const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+      item.contextValue = 'planeError';
+      item.description = element.message;
+      item.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'));
+      item.tooltip = new vscode.MarkdownString(`${escapeMarkdown(element.message)}\n\nClick to try again.`);
+      item.command = { command: 'plane.refresh', title: 'Try again' };
       return item;
     }
 
@@ -213,7 +224,9 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
         return [];
       }
       if (element === undefined) {
-        showPlaneError(error);
+        // Still signed in: show why the list is empty, with a way to try again, not the sign-in welcome.
+        setSignedIn(await this.hasToken());
+        return [toErrorNode(formatPlaneError(error))];
       }
       return [];
     }
@@ -225,6 +238,14 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
 
   public assignedIssueCount(): number {
     return this.assignedCount;
+  }
+
+  private async hasToken(): Promise<boolean> {
+    try {
+      return (await this.auth.readToken()) !== undefined;
+    } catch {
+      return true;
+    }
   }
 
   private async loadMyIssues(): Promise<PlaneTreeNode[]> {

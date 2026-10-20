@@ -1,6 +1,6 @@
 import type { PlaneIssue } from '../client/plane.types';
 import { PlaneTreeKind } from '../utils/enums/plane-tree-kind.enum';
-import { groupIssuesByState, parseIssueNode, parseIssueNodes, toCycleNode, toIssueNode, toModuleNode, toProjectNode, toStateNode, toWorkspaceNode } from './tree-model';
+import { groupIssuesByState, parseIssueNode, parseIssueNodes, toCycleNode, toIssueNode, toModuleNode, toProjectNode, toStateNode, toWorkspaceNode, toErrorNode } from './tree-model';
 
 describe('tree-model', () => {
   const sampleIssue: PlaneIssue = {
@@ -110,5 +110,25 @@ describe('tree-model nodes', () => {
       targetDate: '2026-09-25',
       assigneeNames: ['Ada'],
     });
+  });
+});
+
+describe('toErrorNode', () => {
+  it('names the problem and keeps a short message as it is', () => {
+    expect(toErrorNode('Cannot reach host: the connection timed out.')).toEqual({ kind: PlaneTreeKind.ERROR, label: 'Could not load issues', message: 'Cannot reach host: the connection timed out.' });
+  });
+
+  it('collapses line breaks and extra spaces', () => {
+    expect(toErrorNode('first line\n\n  second   line').message).toBe('first line second line');
+  });
+
+  it('shortens a very long message with an ellipsis', () => {
+    const message = toErrorNode('x'.repeat(500)).message;
+    expect(message.length).toBeLessThanOrEqual(160);
+    expect(message.endsWith('…')).toBe(true);
+  });
+
+  it('falls back to a generic message when there is nothing to show', () => {
+    expect(toErrorNode('   ').message).toBe('Something went wrong. Try again.');
   });
 });
