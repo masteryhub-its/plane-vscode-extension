@@ -10,6 +10,11 @@ Redesigned interface. Everything from 1.0.1 is included.
 - Issue preview rebuilt: breadcrumb, key and title, an action toolbar (open, change state, assign, copy link, copy key, copy branch name), a properties panel, sub-issue progress, an activity timeline and a comment composer (Ctrl+Enter sends)
 - Loading skeleton instead of a blank panel; a Retry page on failure
 - One theme stylesheet built only from editor theme colours, with high contrast support
+- Issue preview toolbar also changes priority, labels and due date, renames the issue, adds a sub-issue and creates a git branch
+- **Create Plane Issue from Selection** (editor right-click): starts an issue titled from the selected code or TODO comment, with its file and lines in the description
+- **Create Git Branch from Plane Issue**, and a status bar entry showing the issue the current branch is named after (click to open it)
+- **Filter Plane Issues** (under **...**): assigned to me, in progress, urgent and high priority, overdue, unassigned, or by text; saved filters are kept
+- The workspace list and your issues are saved and shown at once on the next start, then refreshed in the background; independent requests run in parallel and slow reads race a second attempt
 - Requests to Plane are retried (up to three attempts) when the connection itself fails, which makes a flaky network far more reliable; a write is only repeated when the connection never opened, so nothing is applied twice
 
 ## 1.0.1 — 2026-10-19

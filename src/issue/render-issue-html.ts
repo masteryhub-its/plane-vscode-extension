@@ -233,6 +233,12 @@ export function renderIssuePreviewHtml(input: RenderIssueHtmlInput): string {
     <button type="button" class="btn primary" id="open-plane">Open in Plane</button>
     ${actionButton(IssuePanelMessageType.CHANGE_STATE, issue.stateName, { icon: stateIconSvg(issue.stateGroup) })}
     ${actionButton(IssuePanelMessageType.CHANGE_ASSIGNEE, 'Assign')}
+    ${actionButton(IssuePanelMessageType.CHANGE_PRIORITY, 'Priority')}
+    ${actionButton(IssuePanelMessageType.CHANGE_LABELS, 'Labels')}
+    ${actionButton(IssuePanelMessageType.CHANGE_DUE_DATE, 'Due date')}
+    ${actionButton(IssuePanelMessageType.CHANGE_TITLE, 'Rename', { ghost: true })}
+    ${actionButton(IssuePanelMessageType.ADD_SUB_ISSUE, 'Add sub-issue', { ghost: true })}
+    ${actionButton(IssuePanelMessageType.CREATE_BRANCH, 'Create branch', { ghost: true })}
     ${actionButton(IssuePanelMessageType.COPY_LINK, 'Copy link', { ghost: true })}
     ${actionButton(IssuePanelMessageType.COPY_KEY, 'Copy key', { ghost: true })}
     ${actionButton(IssuePanelMessageType.COPY_BRANCH, 'Copy branch name', { ghost: true })}

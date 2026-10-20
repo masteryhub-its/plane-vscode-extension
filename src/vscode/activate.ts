@@ -3,7 +3,9 @@ import { AuthService } from '../auth/auth-service';
 import { exportPatToMcpEnv, mcpEnvWritePreview } from '../auth/export-pat-to-mcp-env';
 import { fetchHttpClient } from '../client/fetch-http-client';
 import { buildUserAgent } from '../constants';
+import type { PlaneUser } from '../client/plane.types';
 import { isNotSignedInError } from '../errors/plane-error';
+import { createKeyedMemo } from '../utils/keyed-memo';
 import { IssueListCache } from '../sync/issue-list-cache';
 import {
   archiveIssueCommand,
@@ -26,6 +28,10 @@ import {
   type OpenIssuePreviewInput,
   type PlaneCommandContext,
 } from './commands';
+import { ACTIVE_TREE_FILTER_KEY, TREE_FILTERS_KEY } from '../constants';
+import { parseTreeFilters, treeFilterById } from '../filter/tree-filter';
+import { BranchIssueStatus } from './branch-issue-status';
+import { onBranchMayHaveChanged } from './git-branch';
 import { PlaneHoverProvider } from './hover-provider';
 import { PlaneIssueDecorationProvider } from './issue-decorations';
 import { openPlaneIssuePanel } from './issue-panel';
@@ -34,6 +40,7 @@ import { VsCodeSecretStore } from './secret-store';
 import { VsCodeSettingsReader } from './settings-reader';
 import { PlaneSidebarView } from './sidebar-view';
 import { PlaneStatusBar } from './status-bar';
+import { GlobalStateSavedStore } from './saved-state-store';
 import { PLANE_TREE_VIEW_ID, PlaneTreeProvider } from './tree-provider';
 
 function extensionVersion(context: vscode.ExtensionContext): string | undefined {
@@ -58,7 +65,16 @@ export function activatePlane(context: vscode.ExtensionContext): void {
   });
   const statusBar = new PlaneStatusBar();
   const issueCache = new IssueListCache();
-  const tree = new PlaneTreeProvider(auth, issueCache);
+  const tree = new PlaneTreeProvider(
+    auth,
+    issueCache,
+    { workspaces: new GlobalStateSavedStore(context.globalState, 'plane.saved.workspaces'), myIssues: new GlobalStateSavedStore(context.globalState, 'plane.saved.myIssues') },
+    () => settings.read().serverUrl,
+    (message) => {
+      output.appendLine(message);
+      vscode.window.setStatusBarMessage(message, 10_000);
+    }
+  );
   const treeView = vscode.window.createTreeView(PLANE_TREE_VIEW_ID, { treeDataProvider: tree, canSelectMany: true });
   tree.setTreeView(treeView);
 
@@ -83,9 +99,11 @@ export function activatePlane(context: vscode.ExtensionContext): void {
     onAssignedCount: applyAssignedBadge,
   });
 
+  const userFor = createKeyedMemo<PlaneUser>();
   const openPreview = async (input: OpenIssuePreviewInput): Promise<void> => {
     const client = await auth.requireClient();
-    const user = await client.currentUser();
+    // Who you are only changes when the server or the token does, so it is asked for once, not on every open.
+    const user = await userFor(`${settings.read().serverUrl}|${(await auth.readToken()) ?? ''}`, () => client.currentUser());
     await openPlaneIssuePanel({
       client,
       serverUrl: settings.read().serverUrl,
@@ -97,7 +115,8 @@ export function activatePlane(context: vscode.ExtensionContext): void {
     });
   };
 
-  const commandCtx: PlaneCommandContext = { auth, settings, tree, statusBar, openPreview, globalState: context.globalState };
+  const branchIssue = new BranchIssueStatus();
+  const commandCtx: PlaneCommandContext = { auth, settings, tree, statusBar, branchIssue, openPreview, globalState: context.globalState };
 
   const runCommandAndWait = (action: () => Promise<void>): Promise<void> =>
     action().catch((error: unknown) => {
@@ -141,11 +160,11 @@ export function activatePlane(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('plane.forceReload', () => {
       issueCache.invalidate();
-      void sidebar.forceReload();
+      void tree.resetSaved().then(() => sidebar.forceReload());
     }),
     vscode.commands.registerCommand('plane.signOut', () => {
       issueCache.invalidate();
-      void sidebar.signOut();
+      void tree.resetSaved().then(() => sidebar.signOut());
     }),
     vscode.commands.registerCommand('plane.openIssue', (node: unknown) => {
       runCommand(async () => {
@@ -235,6 +254,12 @@ export function activatePlane(context: vscode.ExtensionContext): void {
   );
 
   registerPlaneCommands(context, commandCtx);
+  tree.setFilter(treeFilterById(context.globalState.get<string>(ACTIVE_TREE_FILTER_KEY), parseTreeFilters(context.globalState.get(TREE_FILTERS_KEY))));
+  branchIssue.refresh();
+  context.subscriptions.push(
+    branchIssue,
+    onBranchMayHaveChanged(() => branchIssue.refresh())
+  );
 
   void statusBar.refresh(auth);
 }

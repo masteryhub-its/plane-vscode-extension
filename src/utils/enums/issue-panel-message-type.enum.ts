@@ -10,4 +10,10 @@ export enum IssuePanelMessageType {
   COPY_BRANCH = 'copyBranch',
   CHANGE_STATE = 'changeState',
   CHANGE_ASSIGNEE = 'changeAssignee',
+  CHANGE_PRIORITY = 'changePriority',
+  CHANGE_LABELS = 'changeLabels',
+  CHANGE_DUE_DATE = 'changeDueDate',
+  CHANGE_TITLE = 'changeTitle',
+  CREATE_BRANCH = 'createBranch',
+  ADD_SUB_ISSUE = 'addSubIssue',
 }

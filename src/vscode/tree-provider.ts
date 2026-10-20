@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 import type { AuthService } from '../auth/auth-service';
 import { isNotSignedInError } from '../errors/plane-error';
-import { assignedToUser } from '../issue/filter-my-issues';
+import { loadMyIssues } from '../issue/load-my-issues';
+import type { PlaneIssue, PlaneWorkspace } from '../client/plane.types';
+import { filterIssues, type TreeFilter, type TreeFilterContext } from '../filter/tree-filter';
 import type { IssueListCache } from '../sync/issue-list-cache';
+import { accountKeyOf, SavedCache, type SavedContext, type SavedStore } from '../sync/saved-cache';
 import {
   groupIssuesByState,
   MY_ISSUES_TREE_NODE,
@@ -25,6 +28,15 @@ import { PlaneTreeKind } from '../utils/enums/plane-tree-kind.enum';
 import { formatPlaneError } from '../errors/format-error';
 
 export const PLANE_TREE_VIEW_ID = 'planeExplorer';
+
+export interface TreeSavedStores {
+  readonly workspaces: SavedStore;
+  readonly myIssues: SavedStore;
+}
+
+function everyItemHasId<T>(value: unknown): readonly T[] | undefined {
+  return Array.isArray(value) && value.every((item) => typeof item === 'object' && item !== null && typeof (item as { id?: unknown }).id === 'string') ? (value as readonly T[]) : undefined;
+}
 
 function toThemeIcon(spec: IssueIconSpec): vscode.ThemeIcon {
   return new vscode.ThemeIcon(spec.id, spec.color === undefined ? undefined : new vscode.ThemeColor(spec.color));
@@ -53,20 +65,79 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
   private readonly emitter = new vscode.EventEmitter<PlaneTreeNode | undefined>();
   private treeView: vscode.TreeView<PlaneTreeNode> | undefined;
   private assignedCount = 0;
+  private filter: TreeFilter | undefined;
+  private userId: string | undefined;
 
   public readonly onDidChangeTreeData: vscode.Event<PlaneTreeNode | undefined> = this.emitter.event;
 
+  private readonly workspacesCache: SavedCache<readonly PlaneWorkspace[]>;
+  private readonly myIssuesCache: SavedCache<readonly PlaneIssue[]>;
+
   public constructor(
     private readonly auth: AuthService,
-    private readonly issueCache: IssueListCache
-  ) {}
+    private readonly issueCache: IssueListCache,
+    stores: TreeSavedStores,
+    private readonly serverUrl: () => string,
+    notify: (message: string) => void
+  ) {
+    const common = {
+      now: (): number => Date.now(),
+      onRefreshed: (): void => {
+        this.emitter.fire(undefined);
+      },
+      onRefreshFailed: (message: string): void => {
+        notify(`Showing your saved view. Could not refresh: ${message}`);
+      },
+    };
+    this.workspacesCache = new SavedCache<readonly PlaneWorkspace[]>({ ...common, store: stores.workspaces, validate: everyItemHasId<PlaneWorkspace> });
+    this.myIssuesCache = new SavedCache<readonly PlaneIssue[]>({ ...common, store: stores.myIssues, validate: everyItemHasId<PlaneIssue> });
+  }
+
+  /** Forgets the saved copies too, for signing out, switching server or a full reload. */
+  public async resetSaved(): Promise<void> {
+    this.userId = undefined;
+    await Promise.all([this.workspacesCache.reset(), this.myIssuesCache.reset()]);
+  }
+
+  private async savedContext(): Promise<SavedContext> {
+    return { serverUrl: this.serverUrl(), accountKey: accountKeyOf((await this.auth.readToken()) ?? '') };
+  }
 
   public setTreeView(view: vscode.TreeView<PlaneTreeNode>): void {
     this.treeView = view;
+    this.showFilter();
   }
 
+  public activeFilter(): TreeFilter | undefined {
+    return this.filter;
+  }
+
+  /** Shows only the issues that pass the filter in every issue list; undefined shows them all again. */
+  public setFilter(filter: TreeFilter | undefined): void {
+    this.filter = filter;
+    this.showFilter();
+    this.emitter.fire(undefined);
+  }
+
+  private showFilter(): void {
+    if (this.treeView !== undefined) {
+      this.treeView.description = this.filter === undefined ? '' : `Filter: ${this.filter.name}`;
+    }
+    void vscode.commands.executeCommand('setContext', 'plane.filterActive', this.filter !== undefined);
+  }
+
+  private async filterContext(client: Awaited<ReturnType<AuthService['requireClient']>>): Promise<TreeFilterContext> {
+    if (this.filter?.mine === true && this.userId === undefined) {
+      this.userId = (await client.currentUser()).id;
+    }
+    return this.userId === undefined ? { now: new Date() } : { userId: this.userId, now: new Date() };
+  }
+
+  /** Redraws the tree. What was last saved is shown at once and refreshed in the background. */
   public refresh(): void {
     this.issueCache.invalidate();
+    this.workspacesCache.invalidate();
+    this.myIssuesCache.invalidate();
     this.emitter.fire(undefined);
   }
 
@@ -163,7 +234,7 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
     try {
       if (element === undefined) {
         const client = await this.auth.requireClient();
-        const workspaces = await client.listWorkspaces();
+        const { data: workspaces } = await this.workspacesCache.read(await this.savedContext(), () => client.listWorkspaces());
         setSignedIn(true);
         return [MY_ISSUES_TREE_NODE, ...workspaces.map(toWorkspaceNode)];
       }
@@ -196,7 +267,7 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
 
       if (element.kind === PlaneTreeKind.STATE) {
         const client = await this.auth.requireClient();
-        const issues = await this.issueCache.listIssues(client, element.workspaceSlug, element.projectId, Date.now());
+        const issues = filterIssues(await this.issueCache.listIssues(client, element.workspaceSlug, element.projectId, Date.now()), this.filter, await this.filterContext(client));
         const grouped = groupIssuesByState(issues);
         const byName = grouped.get(element.label) ?? [];
         const byId = issues.filter((issue) => issue.stateId === element.id);
@@ -206,13 +277,13 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
 
       if (element.kind === PlaneTreeKind.CYCLE) {
         const client = await this.auth.requireClient();
-        const issues = await client.listCycleIssues(element.workspaceSlug, element.projectId, element.id);
+        const issues = filterIssues(await client.listCycleIssues(element.workspaceSlug, element.projectId, element.id), this.filter, await this.filterContext(client));
         return issues.map(toIssueNode);
       }
 
       if (element.kind === PlaneTreeKind.MODULE) {
         const client = await this.auth.requireClient();
-        const issues = await client.listModuleIssues(element.workspaceSlug, element.projectId, element.id);
+        const issues = filterIssues(await client.listModuleIssues(element.workspaceSlug, element.projectId, element.id), this.filter, await this.filterContext(client));
         return issues.map(toIssueNode);
       }
 
@@ -250,17 +321,15 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
 
   private async loadMyIssues(): Promise<PlaneTreeNode[]> {
     const client = await this.auth.requireClient();
-    const user = await client.currentUser();
-    const workspaces = await client.listWorkspaces();
-    const mine = [];
-    for (const workspace of workspaces) {
-      const projects = await client.listProjects(workspace.slug);
-      for (const project of projects) {
-        const issues = await this.issueCache.listIssues(client, workspace.slug, project.id, Date.now());
-        mine.push(...assignedToUser(issues, user.id));
+    const { data: issues } = await this.myIssuesCache.read(await this.savedContext(), async () => {
+      const user = await client.currentUser();
+      const result = await loadMyIssues(client, (workspaceSlug, projectId) => this.issueCache.listIssues(client, workspaceSlug, projectId, Date.now()), user.id);
+      if (result.failedProjects > 0) {
+        vscode.window.setStatusBarMessage(`Your issues: ${result.failedProjects} project(s) could not be loaded, so some issues may be missing. Sync to try again.`, 10_000);
       }
-    }
-    this.assignedCount = mine.length;
-    return mine.map(toIssueNode);
+      return result.issues;
+    });
+    this.assignedCount = issues.length;
+    return filterIssues(issues, this.filter, await this.filterContext(client)).map(toIssueNode);
   }
 }

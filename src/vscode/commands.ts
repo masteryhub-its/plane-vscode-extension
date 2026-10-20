@@ -8,11 +8,15 @@ import { isNotSignedInError } from '../errors/plane-error';
 import { detectIssueKeys, detectPlaneUrls } from '../issue/detect-links';
 import { resolveSearchWorkspaces } from '../search/resolve-workspaces';
 import { searchIssues } from '../search/search-issues';
-import { CREATE_DEFAULTS_KEY } from '../constants';
+import { ACTIVE_TREE_FILTER_KEY, CREATE_DEFAULTS_KEY, TREE_FILTERS_KEY } from '../constants';
+import { BUILT_IN_TREE_FILTERS, parseTreeFilters, type TreeFilter } from '../filter/tree-filter';
 import { parseCreateIssueDefaults, type CreateIssueDefaults } from '../filter/create-defaults';
+import { draftFromSelection } from '../issue/draft-from-selection';
 import { draftFromIntake, draftFromTemplate, type CreateIssueDraft } from '../issue/create-issue-draft';
 import { ARCHIVE_CONFIRM_ACTION, DELETE_CONFIRM_ACTION, isArchiveConfirmed, isDeleteConfirmed, isOverwriteConfirmed, OVERWRITE_CONFIRM_ACTION } from '../issue/confirm-issue-action';
+import { branchNameFor, validateBranchName } from '../issue/branch-name';
 import { formatIssueKey } from '../issue/issue-key';
+import { hitForKey } from '../search/hit-for-key';
 import { buildIssueUrl } from '../client/issue-url';
 import { groupIssuesByProject } from '../tree/bulk-state';
 import { parseIssueNode, parseIssueNodes, toIssueNode, type PlaneTreeIssueNode } from '../tree/tree-model';
@@ -20,6 +24,8 @@ import { PlanePriority } from '../utils/enums/plane-priority.enum';
 import { planePriorityLabel } from '../utils/plane-priority';
 import { showPlaneError, showPlaneInfo } from './messages';
 import { openPlaneUrl } from './open-url';
+import type { BranchIssueStatus } from './branch-issue-status';
+import { createAndCheckoutBranch } from './git-branch';
 import type { PlaneStatusBar } from './status-bar';
 import type { PlaneTreeProvider } from './tree-provider';
 
@@ -35,6 +41,7 @@ export interface PlaneCommandContext {
   readonly settings: SettingsStore;
   readonly tree: PlaneTreeProvider;
   readonly statusBar: PlaneStatusBar;
+  readonly branchIssue: BranchIssueStatus;
   readonly openPreview: (input: OpenIssuePreviewInput) => Promise<void>;
   readonly globalState: vscode.Memento;
 }
@@ -117,6 +124,7 @@ export async function setServerUrlCommand(ctx: PlaneCommandContext): Promise<voi
     return;
   }
   await ctx.auth.clearCredential();
+  await ctx.tree.resetSaved();
   await ctx.settings.writeServerUrl(next);
   showPlaneInfo(`Plane server set to ${next}. Sign in to continue.`);
   await refreshUi(ctx);
@@ -124,6 +132,7 @@ export async function setServerUrlCommand(ctx: PlaneCommandContext): Promise<voi
 
 export async function signOutCommand(ctx: PlaneCommandContext): Promise<void> {
   await ctx.auth.clearCredential();
+  await ctx.tree.resetSaved();
   showPlaneInfo('Signed out of Plane');
   await refreshUi(ctx);
 }
@@ -284,6 +293,24 @@ export async function createIssueCommand(ctx: PlaneCommandContext, prefill?: Cre
     issueId: issue.id,
     title: issue.name,
   });
+}
+
+/** Starts a new issue from the code selected in the editor, with its file and line range written into the description. */
+export async function createIssueFromSelectionCommand(ctx: PlaneCommandContext): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (editor === undefined || editor.selection.isEmpty) {
+    showPlaneInfo('Select some code first');
+    return;
+  }
+  const { selection, document } = editor;
+  const draft = draftFromSelection({
+    relativePath: vscode.workspace.asRelativePath(document.uri, false),
+    startLine: selection.start.line + 1,
+    endLine: selection.end.character === 0 && selection.end.line > selection.start.line ? selection.end.line : selection.end.line + 1,
+    languageId: document.languageId,
+    text: document.getText(selection),
+  });
+  await createIssueCommand(ctx, { draft, workspaceSlug: undefined, projectId: undefined });
 }
 
 export async function convertIntakeCommand(ctx: PlaneCommandContext): Promise<void> {
@@ -726,6 +753,42 @@ export function registerPlaneCommands(context: vscode.ExtensionContext, ctx: Pla
       })
     ),
     vscode.commands.registerCommand(
+      'plane.createBranchFromIssue',
+      wrap(async (node: unknown) => {
+        await createBranchFromIssueCommand(ctx, node);
+      })
+    ),
+    vscode.commands.registerCommand(
+      'plane.createSubIssue',
+      wrap(async (node: unknown) => {
+        await createSubIssueCommand(ctx, node);
+      })
+    ),
+    vscode.commands.registerCommand(
+      'plane.openBranchIssue',
+      wrap(async () => {
+        await openBranchIssueCommand(ctx);
+      })
+    ),
+    vscode.commands.registerCommand(
+      'plane.filterIssues',
+      wrap(async () => {
+        await filterIssuesCommand(ctx);
+      })
+    ),
+    vscode.commands.registerCommand(
+      'plane.clearIssueFilter',
+      wrap(async () => {
+        await clearIssueFilterCommand(ctx);
+      })
+    ),
+    vscode.commands.registerCommand(
+      'plane.createIssueFromSelection',
+      wrap(async () => {
+        await createIssueFromSelectionCommand(ctx);
+      })
+    ),
+    vscode.commands.registerCommand(
       'plane.openLink',
       wrap(async () => {
         await openLinkCommand(ctx);
@@ -738,4 +801,111 @@ export function registerPlaneCommands(context: vscode.ExtensionContext, ctx: Pla
       })
     )
   );
+}
+
+/** Creates a git branch named after the issue and switches to it. */
+export async function createBranchFromIssueCommand(ctx: PlaneCommandContext, nodeArg?: unknown): Promise<void> {
+  const issueNode = requireIssueNode(nodeArg);
+  const key = formatIssueKey(issueNode.projectIdentifier, issueNode.sequenceId, issueNode.issueId);
+  const suggested = branchNameFor(key, issueNode.label);
+  const name = await vscode.window.showInputBox({ title: 'New branch', value: suggested, ignoreFocusOut: true, validateInput: validateBranchName });
+  if (name === undefined || name.trim().length === 0) {
+    return;
+  }
+  if (await createAndCheckoutBranch(name.trim())) {
+    showPlaneInfo(`Switched to new branch ${name.trim()}`);
+    ctx.branchIssue.refresh();
+    return;
+  }
+  await vscode.env.clipboard.writeText(name.trim());
+  showPlaneInfo(`No git repository is open, so the branch name was copied instead: ${name.trim()}`);
+}
+
+/** Creates an issue under the selected one, in the same project. */
+export async function createSubIssueCommand(ctx: PlaneCommandContext, nodeArg?: unknown): Promise<void> {
+  const parent = requireIssueNode(nodeArg);
+  const title = await vscode.window.showInputBox({ title: `Sub-issue of ${formatIssueKey(parent.projectIdentifier, parent.sequenceId, parent.issueId)}`, prompt: 'Title', ignoreFocusOut: true });
+  if (title === undefined || title.trim().length === 0) {
+    return;
+  }
+  const client = await ctx.auth.requireClient();
+  const issue = await client.createIssue({
+    workspaceSlug: parent.workspaceSlug,
+    projectId: parent.projectId,
+    name: title.trim(),
+    descriptionHtml: '',
+    priority: PlanePriority.NONE,
+    parentId: parent.issueId,
+  });
+  showPlaneInfo(`Created ${issue.projectIdentifier}-${issue.sequenceId} under ${parent.projectIdentifier}-${parent.sequenceId}`);
+  ctx.tree.refresh();
+}
+
+/** Opens the issue the current git branch is named after. */
+export async function openBranchIssueCommand(ctx: PlaneCommandContext): Promise<void> {
+  const key = ctx.branchIssue.currentKey();
+  if (key === undefined) {
+    showPlaneInfo('The current branch is not named after a Plane issue');
+    return;
+  }
+  const client = await ctx.auth.requireClient();
+  const settings = ctx.settings.read();
+  const workspaces = resolveSearchWorkspaces(settings.defaultWorkspaceSlug, await client.listWorkspaces());
+  const hit = hitForKey(await searchIssues({ client, workspaces, keyword: key, defaultProjectId: settings.defaultProjectId }), key);
+  if (hit === undefined) {
+    showPlaneInfo(`${key} was not found in Plane`);
+    return;
+  }
+  await ctx.openPreview({ workspaceSlug: hit.workspaceSlug, projectId: hit.projectId, issueId: hit.issueId, title: hit.title });
+}
+
+interface FilterPickItem extends vscode.QuickPickItem {
+  readonly action: 'clear' | 'text' | 'apply';
+  readonly filter?: TreeFilter;
+}
+
+async function applyTreeFilter(ctx: PlaneCommandContext, filter: TreeFilter | undefined): Promise<void> {
+  await ctx.globalState.update(ACTIVE_TREE_FILTER_KEY, filter?.id);
+  ctx.tree.setFilter(filter);
+}
+
+/** Lets the user choose which issues the tree shows: a ready-made filter, one they saved, or a text search they can save. */
+export async function filterIssuesCommand(ctx: PlaneCommandContext): Promise<void> {
+  const saved = parseTreeFilters(ctx.globalState.get(TREE_FILTERS_KEY));
+  const active = ctx.tree.activeFilter();
+  const items: FilterPickItem[] = [
+    ...(active === undefined ? [] : [{ label: '$(clear-all) Show all issues', description: `Stop filtering by “${active.name}”`, action: 'clear' as const }]),
+    ...BUILT_IN_TREE_FILTERS.map((filter): FilterPickItem => ({ label: filter.name, action: 'apply', filter, ...(filter.id === active?.id ? { description: 'Active' } : {}) })),
+    ...saved.map((filter): FilterPickItem => ({ label: filter.name, description: filter.text === undefined ? 'Saved' : `Saved · “${filter.text}”`, action: 'apply', filter })),
+    { label: '$(search) Filter by text…', description: 'Title or issue key', action: 'text' },
+  ];
+  const picked = await vscode.window.showQuickPick(items, { title: 'Filter issues in the tree', placeHolder: 'Choose which issues to show' });
+  if (picked === undefined) {
+    return;
+  }
+  if (picked.action === 'clear') {
+    await applyTreeFilter(ctx, undefined);
+    return;
+  }
+  if (picked.action === 'apply') {
+    await applyTreeFilter(ctx, picked.filter);
+    return;
+  }
+  const text = await vscode.window.showInputBox({ title: 'Filter by text', prompt: 'Show issues whose title or key contains…', ignoreFocusOut: true });
+  if (text === undefined || text.trim().length === 0) {
+    return;
+  }
+  const name = await vscode.window.showInputBox({ title: 'Save this filter?', prompt: 'Give it a name to keep it in the list, or leave this empty to use it just once', ignoreFocusOut: true });
+  if (name === undefined) {
+    return;
+  }
+  const filter: TreeFilter = { id: name.trim().length > 0 ? `saved-${Date.now()}` : 'once', name: name.trim().length > 0 ? name.trim() : `“${text.trim()}”`, text: text.trim() };
+  if (name.trim().length > 0) {
+    await ctx.globalState.update(TREE_FILTERS_KEY, [...saved, filter]);
+  }
+  await applyTreeFilter(ctx, filter);
+}
+
+export async function clearIssueFilterCommand(ctx: PlaneCommandContext): Promise<void> {
+  await applyTreeFilter(ctx, undefined);
 }

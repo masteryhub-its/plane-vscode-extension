@@ -76,6 +76,8 @@ export interface CreateIssueInput {
   readonly descriptionHtml: string;
   readonly priority: string;
   readonly labelIds?: readonly string[];
+  /** Makes the new issue a sub-issue of this one. */
+  readonly parentId?: string;
 }
 
 export interface UpdateIssueStateInput {

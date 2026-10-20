@@ -128,6 +128,15 @@ describe('PlaneClient resources', () => {
     expect(archive).toBeDefined();
   });
 
+  it('creates a sub-issue by sending the parent, and sends no parent otherwise', async () => {
+    const { plane, requests } = client({ [`POST /workspaces/${W}/projects/${P}/issues/`]: ISSUE });
+    await plane.createIssue({ workspaceSlug: W, projectId: P, name: 'Child', descriptionHtml: '', priority: 'none', parentId: 'parent-1' });
+    await plane.createIssue({ workspaceSlug: W, projectId: P, name: 'Alone', descriptionHtml: '', priority: 'none' });
+    const bodies = requests.filter((request) => request.method === HttpMethod.POST).map((request) => JSON.parse(request.body ?? '{}') as Record<string, unknown>);
+    expect(bodies[0]?.['parent']).toBe('parent-1');
+    expect(bodies[1]).not.toHaveProperty('parent');
+  });
+
   it('subscribes with POST and unsubscribes with DELETE', async () => {
     const path = `/workspaces/${W}/projects/${P}/issues/${I}/subscribe/`;
     const { plane, requests } = client({ [`POST ${path}`]: {}, [`DELETE ${path}`]: {} });

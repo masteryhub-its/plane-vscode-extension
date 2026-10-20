@@ -8,6 +8,7 @@ import { issuePanelId } from '../issue/issue-panel-id';
 import { plainTextToCommentHtml } from '../issue/comment-text';
 import { formatIssueKey } from '../issue/issue-key';
 import { copyActionFor } from '../issue/copy-actions';
+import { commandForPanelMessage } from '../issue/panel-commands';
 import { renderIssueLoadingHtml } from '../issue/render-issue-loading-html';
 import { renderPanelErrorHtml } from '../issue/render-panel-error-html';
 import { toIssueNode } from '../tree/tree-model';
@@ -46,8 +47,9 @@ export async function openPlaneIssuePanel(input: OpenIssuePanelInput): Promise<v
   const shown: ShownIssue = { issue: undefined, planeUrl: '' };
 
   const render = async (): Promise<void> => {
-    const issue = await input.client.getIssue(input.workspaceSlug, input.projectId, input.issueId);
-    const [comments, subIssues, attachments, relations, worklogs, labels] = await Promise.all([
+    // Nothing here depends on anything else, so all of it is requested at once.
+    const [issue, comments, subIssues, attachments, relations, worklogs, labels] = await Promise.all([
+      input.client.getIssue(input.workspaceSlug, input.projectId, input.issueId),
       input.client.listComments(input.workspaceSlug, input.projectId, input.issueId).catch(() => []),
       input.client.listSubIssues(input.workspaceSlug, input.projectId, input.issueId).catch(() => []),
       input.client.listAttachments(input.workspaceSlug, input.projectId, input.issueId).catch(() => []),
@@ -129,8 +131,8 @@ async function handleIssuePanelMessage(input: OpenIssuePanelInput, message: unkn
         showPlaneInfo(copy.confirmation);
         return;
       }
-      if (record.type === IssuePanelMessageType.CHANGE_STATE || record.type === IssuePanelMessageType.CHANGE_ASSIGNEE) {
-        const command = record.type === IssuePanelMessageType.CHANGE_STATE ? 'plane.updateIssueState' : 'plane.updateIssueAssignee';
+      const command = commandForPanelMessage(record.type);
+      if (command !== undefined) {
         await vscode.commands.executeCommand(command, toIssueNode(shown.issue));
         await render();
         return;

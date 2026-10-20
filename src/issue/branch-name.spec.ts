@@ -1,4 +1,4 @@
-import { branchNameFor } from './branch-name';
+import { branchNameFor, issueKeyFromBranch, validateBranchName } from './branch-name';
 
 describe('branchNameFor', () => {
   it('joins the lowercase key and a slug of the title', () => {
@@ -23,5 +23,31 @@ describe('branchNameFor', () => {
 
   it('only ever produces characters a branch name can hold', () => {
     expect(branchNameFor('ENG-12', 'a/b\\c..d~e^f:g?h*i[j')).toMatch(/^[a-z0-9-]+$/u);
+  });
+});
+
+describe('issueKeyFromBranch', () => {
+  it.each([
+    ['eng-12-fix-login', 'ENG-12'],
+    ['feature/eng-12-fix-login', 'ENG-12'],
+    ['bugfix/MH-345_retry', 'MH-345'],
+    ['ENG-7', 'ENG-7'],
+    ['users/me/web2-9-title', 'WEB2-9'],
+  ])('finds the key in %s', (branch, key) => {
+    expect(issueKeyFromBranch(branch)).toBe(key);
+  });
+
+  it.each(['main', 'develop', 'release/1.2.3', 'feature/login', 'fix-2024-01-bug', 'v2-3', 'HEAD', ''])('finds no key in %s', (branch) => {
+    expect(issueKeyFromBranch(branch)).toBeUndefined();
+  });
+});
+
+describe('validateBranchName', () => {
+  it.each(['eng-12-fix', 'feature/eng-12', 'a.b'])('accepts %s', (name) => {
+    expect(validateBranchName(name)).toBeUndefined();
+  });
+
+  it.each(['', '  ', 'has space', 'a..b', '-lead', '/lead', 'trail/', 'x.lock', 'trail.', 'a~b', 'a^b', 'a:b', 'a?b', 'a*b', 'a[b', 'a\\b', 'a//b', '@'])('rejects %p', (name) => {
+    expect(validateBranchName(name)).toEqual(expect.any(String));
   });
 });

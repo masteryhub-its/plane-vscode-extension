@@ -485,8 +485,8 @@ export class PlaneClient {
   }
 
   public async listIssues(workspaceSlug: string, projectId: string, query?: ListIssuesQuery): Promise<readonly PlaneIssue[]> {
-    const project = await this.findProject(workspaceSlug, projectId);
-    const segment = await this.resolveIssueCollectionSegment(workspaceSlug, projectId);
+    // Looking up the project and probing which issues endpoint exists are independent, so they run together.
+    const [project, segment] = await Promise.all([this.findProject(workspaceSlug, projectId), this.resolveIssueCollectionSegment(workspaceSlug, projectId)]);
     const items: PlaneIssue[] = [];
     let cursor: string | undefined;
     let page = 0;
@@ -514,8 +514,7 @@ export class PlaneClient {
   }
 
   public async getIssue(workspaceSlug: string, projectId: string, issueId: string): Promise<PlaneIssue> {
-    const project = await this.findProject(workspaceSlug, projectId);
-    const segment = await this.resolveIssueCollectionSegment(workspaceSlug, projectId);
+    const [project, segment] = await Promise.all([this.findProject(workspaceSlug, projectId), this.resolveIssueCollectionSegment(workspaceSlug, projectId)]);
     const raw = await this.requestJson(
       `${this.apiRoot()}/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/${segment}/${encodeURIComponent(issueId)}/?expand=assignees,state_detail`,
       HttpMethod.GET
@@ -532,6 +531,9 @@ export class PlaneClient {
     };
     if (input.labelIds !== undefined) {
       payload['labels'] = [...input.labelIds];
+    }
+    if (input.parentId !== undefined) {
+      payload['parent'] = input.parentId;
     }
     const raw = await this.requestJson(
       `${this.apiRoot()}/workspaces/${encodeURIComponent(input.workspaceSlug)}/projects/${encodeURIComponent(input.projectId)}/${segment}/`,

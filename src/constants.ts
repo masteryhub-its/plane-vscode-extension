@@ -13,3 +13,5 @@ export const ISSUES_PAGE_SIZE = 100;
 export const MAX_ISSUE_PAGES = 50;
 export const CREATE_DEFAULTS_KEY = 'plane.createDefaults';
 export const SAVED_FILTERS_KEY = 'plane.savedFilters';
+export const TREE_FILTERS_KEY = 'plane.treeFilters';
+export const ACTIVE_TREE_FILTER_KEY = 'plane.activeTreeFilter';

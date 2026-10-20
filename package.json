@@ -116,6 +116,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "plane.createIssueFromSelection",
+        "title": "Create Plane Issue from Selection",
+        "icon": "$(add)"
+      },
+      {
         "command": "plane.updateIssueState",
         "title": "Change Issue State",
         "icon": "$(circle-outline)"
@@ -205,6 +210,31 @@
         "command": "plane.setServerUrl",
         "title": "Set Plane Server URL",
         "icon": "$(server)"
+      },
+      {
+        "command": "plane.createBranchFromIssue",
+        "title": "Create Git Branch from Plane Issue",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "plane.createSubIssue",
+        "title": "Create Sub-issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "plane.openBranchIssue",
+        "title": "Open Plane Issue for Current Branch",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "plane.filterIssues",
+        "title": "Filter Plane Issues",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "plane.clearIssueFilter",
+        "title": "Show All Plane Issues",
+        "icon": "$(clear-all)"
       }
     ],
     "menus": {
@@ -256,6 +286,30 @@
         {
           "command": "plane.subscribeIssue",
           "when": "false"
+        },
+        {
+          "command": "plane.createIssueFromSelection",
+          "when": "editorHasSelection && plane.signedIn"
+        },
+        {
+          "command": "plane.createBranchFromIssue",
+          "when": "false"
+        },
+        {
+          "command": "plane.createSubIssue",
+          "when": "false"
+        },
+        {
+          "command": "plane.openBranchIssue",
+          "when": "plane.signedIn"
+        },
+        {
+          "command": "plane.filterIssues",
+          "when": "plane.signedIn"
+        },
+        {
+          "command": "plane.clearIssueFilter",
+          "when": "plane.filterActive"
         }
       ],
       "view/title": [
@@ -318,6 +372,16 @@
           "command": "plane.signOut",
           "when": "view == planeExplorer && plane.signedIn",
           "group": "1_more@4"
+        },
+        {
+          "command": "plane.filterIssues",
+          "when": "view == planeExplorer && plane.signedIn && !plane.filterActive",
+          "group": "1_more@0"
+        },
+        {
+          "command": "plane.clearIssueFilter",
+          "when": "view == planeExplorer && plane.filterActive",
+          "group": "1_more@0"
         }
       ],
       "view/item/context": [
@@ -385,6 +449,21 @@
           "command": "plane.openIssue",
           "when": "view == planeExplorer && viewItem == planeIssue",
           "group": "2_open@1"
+        },
+        {
+          "command": "plane.createBranchFromIssue",
+          "when": "view == planeExplorer && viewItem == planeIssue"
+        },
+        {
+          "command": "plane.createSubIssue",
+          "when": "view == planeExplorer && viewItem == planeIssue"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "plane.createIssueFromSelection",
+          "when": "editorHasSelection && plane.signedIn",
+          "group": "plane@1"
         }
       ]
     },
