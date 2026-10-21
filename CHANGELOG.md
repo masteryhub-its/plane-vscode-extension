@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 — 2026-10-21
+
+- When the server lists no workspaces for your token and none is set, the tree now asks for the workspace slug and saves it, instead of showing a settings hint with no way to act on it. A **Set Plane Workspace** command does the same
+
 ## 1.1.0 — 2026-10-21
 
 Redesigned interface. Everything from 1.0.1 is included.
