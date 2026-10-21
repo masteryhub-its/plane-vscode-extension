@@ -1,3 +1,4 @@
+import { PlaneErrorCode } from '../utils/enums/plane-error-code.enum';
 import { API_PREFIX } from '../constants';
 import { credentialHeaders } from './credential-headers';
 import { PlaneClient } from './plane-client';
@@ -333,7 +334,9 @@ describe('PlaneClient', () => {
   it('tells the user to set a workspace slug when none is configured', async () => {
     const { client } = createFakeHttp([jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' }), jsonResponse(404, { error: 'Page not found.' })]);
     const plane = new PlaneClient({ serverUrl: SERVER, http: client, token: 'plane_api_test' });
-    await expect(plane.listWorkspaces()).rejects.toThrow('Set plane.defaultWorkspaceSlug');
+    const failure = await plane.listWorkspaces().catch((error: unknown) => error);
+    expect(failure).toMatchObject({ code: PlaneErrorCode.WORKSPACE_NOT_SET });
+    expect((failure as Error).message).toContain('Set plane.defaultWorkspaceSlug');
   });
 
   it('uses the workspace slug itself when retrieve also 404s', async () => {

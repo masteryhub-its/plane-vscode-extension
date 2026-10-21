@@ -235,6 +235,10 @@
         "command": "plane.clearIssueFilter",
         "title": "Show All Plane Issues",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "plane.setWorkspaceSlug",
+        "title": "Set Plane Workspace"
       }
     ],
     "menus": {
@@ -310,6 +314,10 @@
         {
           "command": "plane.clearIssueFilter",
           "when": "plane.filterActive"
+        },
+        {
+          "command": "plane.setWorkspaceSlug",
+          "when": "plane.signedIn"
         }
       ],
       "view/title": [

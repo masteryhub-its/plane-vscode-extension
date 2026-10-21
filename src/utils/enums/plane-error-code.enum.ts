@@ -8,4 +8,6 @@ export enum PlaneErrorCode {
   UNEXPECTED_RESPONSE = 'UNEXPECTED_RESPONSE',
   NOT_FOUND = 'NOT_FOUND',
   RATE_LIMITED = 'RATE_LIMITED',
+  /** The server lists no workspaces for this token and none is set in settings. */
+  WORKSPACE_NOT_SET = 'WORKSPACE_NOT_SET',
 }

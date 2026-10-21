@@ -465,7 +465,7 @@ export class PlaneClient {
     if (fromUserSettings !== undefined) {
       return [fromUserSettings];
     }
-    throw new PlaneError('Set plane.defaultWorkspaceSlug to your workspace slug.', PlaneErrorCode.NOT_FOUND);
+    throw new PlaneError('Set plane.defaultWorkspaceSlug to your workspace slug.', PlaneErrorCode.WORKSPACE_NOT_SET);
   }
 
   public async listProjects(workspaceSlug: string): Promise<readonly PlaneProject[]> {

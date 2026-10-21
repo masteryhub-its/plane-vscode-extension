@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type { AuthService } from '../auth/auth-service';
 import type { PlaneClient } from '../client/plane-client';
 import type { PlaneMember, PlaneProject, PlaneState, PlaneTemplate, PlaneWorkspace } from '../client/plane.types';
-import { normalizeServerUrl, validateServerUrlInput } from '../config/settings';
+import { isValidWorkspaceSlug, normalizeServerUrl, validateServerUrlInput } from '../config/settings';
 import type { SettingsStore } from '../config/settings.types';
 import { isNotSignedInError } from '../errors/plane-error';
 import { detectIssueKeys, detectPlaneUrls } from '../issue/detect-links';
@@ -771,6 +771,12 @@ export function registerPlaneCommands(context: vscode.ExtensionContext, ctx: Pla
       })
     ),
     vscode.commands.registerCommand(
+      'plane.setWorkspaceSlug',
+      wrap(async () => {
+        await setWorkspaceSlugCommand(ctx);
+      })
+    ),
+    vscode.commands.registerCommand(
       'plane.filterIssues',
       wrap(async () => {
         await filterIssuesCommand(ctx);
@@ -908,4 +914,20 @@ export async function filterIssuesCommand(ctx: PlaneCommandContext): Promise<voi
 
 export async function clearIssueFilterCommand(ctx: PlaneCommandContext): Promise<void> {
   await applyTreeFilter(ctx, undefined);
+}
+
+/** Asks for the workspace slug when the server does not list workspaces for this token, and keeps the answer in settings. */
+export async function setWorkspaceSlugCommand(ctx: PlaneCommandContext): Promise<void> {
+  const slug = await vscode.window.showInputBox({
+    title: 'Plane workspace',
+    prompt: 'Enter your workspace slug: the part after the server address, for example https://plane.example.com/your-workspace',
+    value: ctx.settings.read().defaultWorkspaceSlug ?? '',
+    ignoreFocusOut: true,
+    validateInput: (value) => (isValidWorkspaceSlug(value.trim()) ? undefined : 'Use letters, numbers, - and _ only'),
+  });
+  if (slug === undefined || slug.trim().length === 0) {
+    return;
+  }
+  await ctx.settings.writeDefaultWorkspaceSlug(slug.trim());
+  await refreshUi(ctx);
 }

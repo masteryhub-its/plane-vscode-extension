@@ -20,6 +20,7 @@ export interface SettingsReader {
 
 export interface SettingsWriter {
   writeServerUrl(serverUrl: string): Promise<void>;
+  writeDefaultWorkspaceSlug(slug: string): Promise<void>;
 }
 
 export interface SettingsStore extends SettingsReader, SettingsWriter {}
