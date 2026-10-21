@@ -1,4 +1,4 @@
-# Features — Plane by MasteryHub v1.0.1
+# Features — Plane by MasteryHub v1.1.0
 
 ## Connect
 
@@ -30,7 +30,7 @@
 
 ## Commands (palette)
 
-- Sign in, Search Plane Issues, Open Plane Issue, Create Plane Issue, Sync, Force Reload, Sign out, Open Plane Link or Issue Key, Convert Plane Intake Item
+- Sign in, Search Plane Issues, Open Plane Issue, Create Plane Issue, **Create Plane Issue from Selection** (editor right-click; title from the code or TODO comment, file and lines in the description), **Filter Plane Issues** (under **...**), **Open Plane Issue for Current Branch**, Sync, Force Reload, Sign out, Open Plane Link or Issue Key, Convert Plane Intake Item
 - Change state of selected issues (multi-select in the Issues tree). Issues are grouped by project; the picked state is matched by name in each project, a confirmation is shown first, and the result lists any issue that failed
 - Export Plane PAT to an MCP env file: shows the exact lines and target path, asks for confirmation, writes with `0600` permissions (path from `plane.mcpEnvPath`)
 
@@ -38,6 +38,7 @@
 
 - Change issue state, assignee, priority, labels, title, description, due date
 - Copy issue key / URL
+- **Create Git Branch from Plane Issue** (named like `eng-12-fix-login`, switches to it; copies the name if no git repository is open) and **Create Sub-issue**
 - Subscribe / unsubscribe, archive, delete (with confirm)
 
 ## Issue preview
@@ -48,6 +49,7 @@
 - Sub-issues, relations (blocked-by / blocking / relates-to / duplicate), attachments, logged time
 - Comments newest-first, sanitized with an allowlist; mentions show as `@name`, images as `[image]`, task items as checkboxes
 - Post a comment (blank lines start a paragraph); edit your own comment inline when it is plain text. Comments with formatting show "Edit in Plane to keep formatting" instead of an edit button, so nothing is flattened
+- A toolbar changes state, assignee, priority, labels and due date, renames the issue, adds a sub-issue and creates a git branch
 - **Open in Plane** opens the real web app in the system browser
 
 ## Create and update
@@ -58,6 +60,16 @@
 - Archive (confirm) and delete (strong confirm)
 - A write that times out is not retried; the message says the change may have been applied, so refresh before trying again
 - Issue lists stop at 5000 issues per project and say so in the status bar
+
+## Filters and branch
+
+- **Filter Plane Issues** limits every issue list in the tree: assigned to me, my issues in progress, in progress, urgent and high priority, overdue, unassigned, or by text (title or key). Text filters can be saved; the active filter is remembered and shown on the view
+- A status bar entry shows the issue the current git branch is named after; click it to open the issue
+
+## Faster, and works from a saved view
+
+- Independent requests run in parallel, and a slow read races a second attempt
+- The workspace list and your assigned issues are saved per server and account and shown at once on the next start, then refreshed in the background. Signing out, changing server or Force Reload clears them
 
 ## Link detection
 

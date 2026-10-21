@@ -26,7 +26,11 @@ The sibling [AFFiNE VS Code client](https://github.com/masteryhub-its/affine-vsc
 - **Issues** tree with a state icon, key, due date and priority badge on every row; overdue and urgent issues are coloured. A welcome view handles sign-in and the server choice
 - Issue preview with sanitized HTML, comments (read/write), sub-issues, attachments, relations
 - **Open in Plane** via system browser (`openExternal`, no iframe)
-- Search, create, change state/assignee/priority/labels/title/description/due date
+- Search, create, change state/assignee/priority/labels/title/description/due date, add sub-issues (from the tree or the preview toolbar)
+- **Create an issue from selected code** (editor right-click): title from the code or TODO comment, file and lines in the description
+- **Create a git branch from an issue**, and a status bar entry for the issue the current branch is named after
+- **Filter** the tree: assigned to me, in progress, urgent and high, overdue, unassigned, or by text; filters can be saved
+- Opens fast: requests run in parallel, and your workspaces and issues are saved and shown at once on the next start, then refreshed in the background
 - Copy issue key or URL; archive; delete; subscribe
 - Hover and link detection for `{IDENTIFIER}-{n}` keys and Plane URLs
 - Force reload, sync, optional assigned-issue badge, status bar
