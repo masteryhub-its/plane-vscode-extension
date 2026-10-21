@@ -72,6 +72,7 @@ describe('PlaneClient error mapping', () => {
 describe('PlaneClient listIssues truncation', () => {
   it('warns when the page limit cuts the list short', async () => {
     const warnings: string[] = [];
+    let pageNumber = 0;
     const { http } = routed((request) => {
       if (request.url === PROJECTS_URL) {
         return json(200, [{ id: PROJECT_ID, name: 'Core', identifier: 'MH' }]);
@@ -79,12 +80,52 @@ describe('PlaneClient listIssues truncation', () => {
       if (request.url === PROBE_URL) {
         return json(200, { results: [] });
       }
-      return json(200, { results: [ISSUE], next_cursor: 'more' });
+      pageNumber += 1;
+      return json(200, { results: [{ ...ISSUE, id: `issue-${pageNumber}` }], next_cursor: `more-${pageNumber}` });
     });
     const issues = await plane(http, { onWarning: (message) => warnings.push(message) }).listIssues(SLUG, PROJECT_ID);
     expect(issues).toHaveLength(MAX_ISSUE_PAGES);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain(String(MAX_ISSUE_PAGES * ISSUES_PAGE_SIZE));
+  });
+
+  it('stops at the last page even though the server still sends a cursor, and asks only for the pages that exist', async () => {
+    const warnings: string[] = [];
+    const cursors: (string | null)[] = [];
+    const { http } = routed((request) => {
+      if (request.url === PROJECTS_URL) {
+        return json(200, [{ id: PROJECT_ID, name: 'Core', identifier: 'MH' }]);
+      }
+      if (request.url === PROBE_URL) {
+        return json(200, { results: [] });
+      }
+      const cursor = new URL(request.url).searchParams.get('cursor');
+      cursors.push(cursor);
+      return cursor === null
+        ? json(200, { results: [{ ...ISSUE, id: 'a' }], next_cursor: '100:1:0', next_page_results: true })
+        : json(200, { results: [{ ...ISSUE, id: 'b' }], next_cursor: '100:2:0', next_page_results: false });
+    });
+    const issues = await plane(http, { onWarning: (message) => warnings.push(message) }).listIssues(SLUG, PROJECT_ID);
+    expect(issues.map((issue) => issue.id)).toEqual(['a', 'b']);
+    expect(cursors).toEqual([null, '100:1:0']);
+    expect(warnings).toEqual([]);
+  });
+
+  it('stops on an empty page or a cursor it has already used, instead of going round again', async () => {
+    let calls = 0;
+    const { http } = routed((request) => {
+      if (request.url === PROJECTS_URL) {
+        return json(200, [{ id: PROJECT_ID, name: 'Core', identifier: 'MH' }]);
+      }
+      if (request.url === PROBE_URL) {
+        return json(200, { results: [] });
+      }
+      calls += 1;
+      return calls === 1 ? json(200, { results: [ISSUE], next_cursor: 'same' }) : json(200, { results: [ISSUE], next_cursor: 'same' });
+    });
+    const issues = await plane(http).listIssues(SLUG, PROJECT_ID);
+    expect(calls).toBe(2);
+    expect(issues).toHaveLength(1);
   });
 
   it('does not warn when the list ends on its own', async () => {

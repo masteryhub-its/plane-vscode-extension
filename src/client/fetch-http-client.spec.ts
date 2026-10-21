@@ -177,6 +177,10 @@ interface FetchInitWithSignal {
   readonly signal?: AbortSignal;
 }
 
+interface AbortableInit {
+  readonly signal?: AbortSignal;
+}
+
 describe('hedged reads', () => {
   const originalFetch = globalThis.fetch;
   afterEach(() => {
@@ -246,6 +250,63 @@ describe('hedged reads', () => {
     const response = await createFetchHttpClient({ sleep: () => Promise.resolve(), hedgeDelayMs: 10 })(post);
     expect(response.status).toBe(200);
     expect(calls).toBe(1);
+  });
+
+  it('still reads the body of a rate-limit answer after the other attempts are cancelled', async () => {
+    globalThis.fetch = ((_url: string, init?: AbortableInit) => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const fail = (): void => controller.error(new DOMException('This operation was aborted', 'AbortError'));
+          if (init?.signal?.aborted === true) {
+            fail();
+            return;
+          }
+          init?.signal?.addEventListener('abort', fail, { once: true });
+          setTimeout(() => {
+            try {
+              controller.enqueue(new TextEncoder().encode('slow down'));
+              controller.close();
+            } catch {
+              // already cancelled
+            }
+          }, 30);
+        },
+      });
+      return Promise.resolve(new Response(stream, { status: 429, headers: { 'retry-after': '3' } }));
+    }) as typeof fetch;
+    const response = await createFetchHttpClient({ sleep: () => Promise.resolve(), hedgeDelayMs: 10 })(get);
+    expect(response.status).toBe(429);
+    expect(response.body).toBe('slow down');
+  });
+
+  it('waits out a short rate limit and asks again, up to twice', async () => {
+    const waits: number[] = [];
+    let calls = 0;
+    globalThis.fetch = () => {
+      calls += 1;
+      return Promise.resolve(calls <= 2 ? new Response('slow down', { status: 429, headers: { 'retry-after': '2' } }) : new Response('{}', { status: 200 }));
+    };
+    const response = await createFetchHttpClient({
+      sleep: (ms) => {
+        waits.push(ms);
+        return Promise.resolve();
+      },
+      hedgeDelayMs: 10,
+    })(get);
+    expect(response.status).toBe(200);
+    expect(waits).toEqual([2000, 2000]);
+    expect(calls).toBe(3);
+  });
+
+  it('gives up with the rate-limit answer after two waits', async () => {
+    let calls = 0;
+    globalThis.fetch = () => {
+      calls += 1;
+      return Promise.resolve(new Response('slow down', { status: 429, headers: { 'retry-after': '1' } }));
+    };
+    const response = await createFetchHttpClient({ sleep: () => Promise.resolve(), hedgeDelayMs: 10 })(get);
+    expect(response.status).toBe(429);
+    expect(calls).toBe(3);
   });
 
   it('returns a rate-limit answer as it is instead of asking again', async () => {
