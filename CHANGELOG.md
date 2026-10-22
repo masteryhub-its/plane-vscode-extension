@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 — 2026-10-21
+
+- Issues now load completely: the issue list stopped asking for pages when the server says it is on the last page. It used to keep asking up to the 5000-issue limit, which hit the server's request limit and left the tree empty
+- A rate-limited request shows the server's answer instead of "This operation was aborted", and a short rate limit (up to 20 seconds) is waited out and retried twice
+- When the server lists no workspaces for your token and none is set, the tree now asks for the workspace slug and saves it, instead of showing a settings hint with no way to act on it. A **Set Plane Workspace** command does the same
+
 ## 1.1.0 — 2026-10-21
 
 Redesigned interface. Everything from 1.0.1 is included.

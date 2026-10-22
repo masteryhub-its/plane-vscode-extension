@@ -71,6 +71,8 @@ export interface PlaneTreeErrorNode {
   readonly kind: PlaneTreeKind.ERROR;
   readonly label: string;
   readonly message: string;
+  /** What clicking the row does instead of trying again. */
+  readonly action?: 'set-workspace';
 }
 
 export type PlaneTreeNode =
@@ -87,8 +89,8 @@ function shortenMessage(message: string): string {
 }
 
 /** A row that says why the tree is empty, instead of leaving the view blank. */
-export function toErrorNode(message: string): PlaneTreeErrorNode {
-  return { kind: PlaneTreeKind.ERROR, label: 'Could not load issues', message: shortenMessage(message) };
+export function toErrorNode(message: string, action?: 'set-workspace'): PlaneTreeErrorNode {
+  return { kind: PlaneTreeKind.ERROR, label: 'Could not load issues', message: shortenMessage(message), ...(action === undefined ? {} : { action }) };
 }
 
 export const SIGN_IN_TREE_NODE: PlaneTreeActionNode = {

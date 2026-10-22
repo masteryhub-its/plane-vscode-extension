@@ -31,6 +31,10 @@ export class VsCodeSettingsReader implements SettingsStore {
     });
   }
 
+  public async writeDefaultWorkspaceSlug(slug: string): Promise<void> {
+    await vscode.workspace.getConfiguration('plane').update('defaultWorkspaceSlug', slug, vscode.ConfigurationTarget.Global);
+  }
+
   public async writeServerUrl(serverUrl: string): Promise<void> {
     await vscode.workspace.getConfiguration('plane').update('serverUrl', normalizeServerUrl(serverUrl), vscode.ConfigurationTarget.Global);
   }

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { AuthService } from '../auth/auth-service';
-import { isNotSignedInError } from '../errors/plane-error';
+import { isNotSignedInError, isPlaneError } from '../errors/plane-error';
+import { PlaneErrorCode } from '../utils/enums/plane-error-code.enum';
 import { loadMyIssues } from '../issue/load-my-issues';
 import type { PlaneIssue, PlaneWorkspace } from '../client/plane.types';
 import { filterIssues, type TreeFilter, type TreeFilterContext } from '../filter/tree-filter';
@@ -160,6 +161,11 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
       item.contextValue = 'planeError';
       item.description = element.message;
       item.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'));
+      if (element.action === 'set-workspace') {
+        item.tooltip = 'This server does not list your workspaces. Click to enter the workspace slug (the name in your Plane address).';
+        item.command = { command: 'plane.setWorkspaceSlug', title: 'Choose workspace' };
+        return item;
+      }
       item.tooltip = new vscode.MarkdownString(`${escapeMarkdown(element.message)}\n\nClick to try again.`);
       item.command = { command: 'plane.refresh', title: 'Try again' };
       return item;
@@ -297,7 +303,7 @@ export class PlaneTreeProvider implements vscode.TreeDataProvider<PlaneTreeNode>
       if (element === undefined) {
         // Still signed in: show why the list is empty, with a way to try again, not the sign-in welcome.
         setSignedIn(await this.hasToken());
-        return [toErrorNode(formatPlaneError(error))];
+        return [isPlaneError(error) && error.code === PlaneErrorCode.WORKSPACE_NOT_SET ? toErrorNode('Click to choose your workspace', 'set-workspace') : toErrorNode(formatPlaneError(error))];
       }
       return [];
     }

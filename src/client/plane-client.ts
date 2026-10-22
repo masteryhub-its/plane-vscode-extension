@@ -426,6 +426,10 @@ function parseNextCursor(raw: unknown): string | undefined {
   if (!isRecord(raw)) {
     return undefined;
   }
+  // Plane sends a cursor on every page, the last one included, and says in next_page_results whether there is more.
+  if (raw['next_page_results'] === false) {
+    return undefined;
+  }
   const cursor = raw['next_cursor'] ?? raw['next_page_results'] ?? raw['cursor'];
   return typeof cursor === 'string' && cursor.length > 0 ? cursor : undefined;
 }
@@ -465,7 +469,7 @@ export class PlaneClient {
     if (fromUserSettings !== undefined) {
       return [fromUserSettings];
     }
-    throw new PlaneError('Set plane.defaultWorkspaceSlug to your workspace slug.', PlaneErrorCode.NOT_FOUND);
+    throw new PlaneError('Set plane.defaultWorkspaceSlug to your workspace slug.', PlaneErrorCode.WORKSPACE_NOT_SET);
   }
 
   public async listProjects(workspaceSlug: string): Promise<readonly PlaneProject[]> {
@@ -490,6 +494,7 @@ export class PlaneClient {
     const items: PlaneIssue[] = [];
     let cursor: string | undefined;
     let page = 0;
+    const used = new Set<string>();
     do {
       const params = new URLSearchParams();
       params.set('per_page', String(ISSUES_PAGE_SIZE));
@@ -503,8 +508,14 @@ export class PlaneClient {
       const url = `${this.apiRoot()}/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/${segment}/?${params.toString()}`;
       const raw = await this.requestJson(url, HttpMethod.GET);
       const pageItems = parseList(raw, (item) => parseIssue(item, workspaceSlug, project));
-      items.push(...pageItems);
-      cursor = parseNextCursor(raw);
+      const seen = new Set(items.map((item) => item.id));
+      items.push(...pageItems.filter((item) => !seen.has(item.id)));
+      const next = parseNextCursor(raw);
+      // An empty page, or a cursor already used, means there is nothing new to ask for.
+      cursor = pageItems.length === 0 || (next !== undefined && used.has(next)) ? undefined : next;
+      if (next !== undefined) {
+        used.add(next);
+      }
       page += 1;
     } while (cursor !== undefined && page < MAX_ISSUE_PAGES);
     if (cursor !== undefined) {

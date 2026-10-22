@@ -113,6 +113,16 @@ describe('tree-model nodes', () => {
   });
 });
 
+describe('toErrorNode with an action', () => {
+  it('can offer to choose the workspace', () => {
+    expect(toErrorNode('Pick one', 'set-workspace')).toEqual({ kind: PlaneTreeKind.ERROR, label: 'Could not load issues', message: 'Pick one', action: 'set-workspace' });
+  });
+
+  it('has no action by default', () => {
+    expect(toErrorNode('x')).not.toHaveProperty('action');
+  });
+});
+
 describe('toErrorNode', () => {
   it('names the problem and keeps a short message as it is', () => {
     expect(toErrorNode('Cannot reach host: the connection timed out.')).toEqual({ kind: PlaneTreeKind.ERROR, label: 'Could not load issues', message: 'Cannot reach host: the connection timed out.' });

@@ -57,9 +57,10 @@ function defaultSleep(ms: number): Promise<void> {
 
 /** A rate-limit answer is final: asking again only makes it worse, so it ends a hedged read at once. */
 class RateLimitedSignal extends Error {
-  public readonly response: Response;
+  /** Already read in full: the attempt that got it is cancelled as soon as the read ends, and a cancelled body cannot be read. */
+  public readonly response: HttpResponse;
 
-  public constructor(response: Response) {
+  public constructor(response: HttpResponse) {
     super('rate limited');
     this.response = response;
   }
@@ -117,7 +118,7 @@ async function attemptRead(request: HttpRequest, cancel: AbortSignal, headersTim
   try {
     const response = await send(request, AbortSignal.any([cancel, guard.signal]));
     if (response.status === 429) {
-      throw new RateLimitedSignal(response);
+      throw new RateLimitedSignal(await readResponse(response));
     }
     return response;
   } catch (error: unknown) {
@@ -128,6 +129,33 @@ async function attemptRead(request: HttpRequest, cancel: AbortSignal, headersTim
   }
 }
 
+/** A rate limit that clears within this many seconds is waited out; a longer one is reported. */
+const MAX_RATE_LIMIT_WAIT_SECONDS = 20;
+const RATE_LIMIT_RETRIES = 2;
+
+function rateLimitWaitMs(response: HttpResponse): number | undefined {
+  const seconds = Number(response.headers.get('retry-after'));
+  return Number.isFinite(seconds) && seconds > 0 && seconds <= MAX_RATE_LIMIT_WAIT_SECONDS ? Math.ceil(seconds * 1000) : undefined;
+}
+
+/** Reads as below, and waits out a short rate limit before asking again, because the server will answer once the minute rolls over. */
+async function readWithRateLimitWait(request: HttpRequest, options: ReadOptions): Promise<HttpResponse> {
+  for (let retry = 0; ; retry += 1) {
+    const response = await readHedged(request, options.hedgeDelayMs, options.headersTimeoutMs);
+    const wait = response.status === 429 ? rateLimitWaitMs(response) : undefined;
+    if (wait === undefined || retry >= RATE_LIMIT_RETRIES) {
+      return response;
+    }
+    await options.sleep(wait);
+  }
+}
+
+interface ReadOptions {
+  readonly hedgeDelayMs: number;
+  readonly headersTimeoutMs: number;
+  readonly sleep: (ms: number) => Promise<void>;
+}
+
 /** A read is safe to repeat, so slow or failed attempts are overtaken by new ones running beside them. */
 async function readHedged(request: HttpRequest, hedgeDelayMs: number, headersTimeoutMs: number): Promise<HttpResponse> {
   try {
@@ -135,7 +163,7 @@ async function readHedged(request: HttpRequest, hedgeDelayMs: number, headersTim
     return await readResponse(response);
   } catch (error: unknown) {
     if (error instanceof RateLimitedSignal) {
-      return readResponse(error.response);
+      return error.response;
     }
     if (isTimeoutError(error)) {
       return TIMEOUT_RESPONSE;
@@ -166,7 +194,7 @@ export function createFetchHttpClient(options: FetchClientOptions = {}): HttpCli
   const hedgeDelayMs = options.hedgeDelayMs ?? DEFAULT_HEDGE_DELAY_MS;
   const headersTimeoutMs = options.headersTimeoutMs ?? DEFAULT_HEADERS_TIMEOUT_MS;
   return (request: HttpRequest): Promise<HttpResponse> =>
-    request.method === HttpMethod.GET || request.safeToRepeat === true ? readHedged(request, hedgeDelayMs, headersTimeoutMs) : writeOnce(request, sleep);
+    request.method === HttpMethod.GET || request.safeToRepeat === true ? readWithRateLimitWait(request, { hedgeDelayMs, headersTimeoutMs, sleep }) : writeOnce(request, sleep);
 }
 
 export const fetchHttpClient: HttpClient = createFetchHttpClient();
